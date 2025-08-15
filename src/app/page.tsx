@@ -1,7 +1,20 @@
-import { Button } from "@/components/ui/button";
-export default function Home() {
-return <div className="flex items-center justify-center h-screen">
-   <Button className="bg-blue-500">clic</Button>
-</div>
+import { Button } from "@/components/atoms/ui/button";
+import {
+   Card,
+   CardAction,
+   CardContent,
+   CardDescription,
+   CardFooter,
+   CardHeader,
+   CardTitle,
+} from "@/components/molecules/cards/card"
+import { LoginCard } from "@/components/teamplates/login-card/login-card";
 
+
+export default function Home() {
+   return (
+      <div>
+         <LoginCard />
+      </div>
+   )
 }
