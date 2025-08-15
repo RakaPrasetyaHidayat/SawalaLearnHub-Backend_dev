@@ -1,9 +1,12 @@
+import ForgotPassword from '@/components/teamplates/forgotpassword/forgotpass'
 import React from 'react'
 
-const ForgotPassword = () => {
+function ForgotPasswordPage() {
   return (
-    <div>ForgotPassword</div>
+    <div className='flex justify-center items-center h-screen'>
+        <ForgotPassword />
+    </div>
   )
 }
 
-export default ForgotPassword
+export default ForgotPasswordPage   

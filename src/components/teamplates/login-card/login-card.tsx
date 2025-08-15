@@ -82,7 +82,7 @@ export function LoginCard() {
 
             <div>
               <a
-                href="#"
+                href="/login/forgotpassword"
                 className="hover:underline flex justify-end text-blue-600"
               >
                 forgot password?
