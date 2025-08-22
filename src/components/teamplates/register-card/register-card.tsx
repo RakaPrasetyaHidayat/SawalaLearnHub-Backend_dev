@@ -9,28 +9,30 @@ import { useState } from "react"
 import { Alert, AlertDescription, AlertTitle } from "../../molecules/alert"
 import { XCircle } from "lucide-react"
 import { Checkbox } from "@/components/atoms/ui/checkbox"
+import BrandHeader from "@/components/molecules/brand-header"
 
 export function RegisterCard() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [error, setError] = useState("")
+  const [error] = useState("")
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Cek apakah email & password valid (contoh sederhana)
-    if (email !== "admin@example.com" || password !== "123456") {
-      setError("Email atau password salah!")
-    } else {
-      setError("")
-      alert("Login berhasil!") // nanti bisa diganti dengan redirect
-    }
+  // Cek apakah email & password valid (contoh sederhana)
+  // if (email !== "admin@example.com" || password !== "123456") {
+  //   setError("Email atau password salah!")
+  // } else {
+  //   setError("")
+  //   alert("Login berhasil!") // nanti bisa diganti dengan redirect
+  // }
   }
 
   return (
     <Card className="w-[350px] h-full relative">
       <CardHeader className="mt-[30px] mb-[20px]">
+        <BrandHeader containerClassName="mb-2" />
         <CardTitle className="text-2xl">Create New Account</CardTitle>
         <CardDescription>
           <div className="text-sm text-gray-500">
@@ -109,7 +111,7 @@ export function RegisterCard() {
               type="submit"
               className="w-full rounded-lg bg-blue-500 hover:bg-blue-600 text-white"
             >
-              Masuk
+              Daftar
             </Button>
 
             <div className="flex items-center w-full">

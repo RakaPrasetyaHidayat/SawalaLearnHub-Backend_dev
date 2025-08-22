@@ -6,10 +6,13 @@ import { Label } from "@/components/atoms/ui/label"
 import { Button } from "@/components/atoms/ui/button"
 import Image from "next/image"
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Alert, AlertDescription, AlertTitle } from "../../molecules/alert"
 import { XCircle } from "lucide-react"
+import BrandHeader from "@/components/molecules/brand-header"
 
 export function LoginCard() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
@@ -34,14 +37,15 @@ export function LoginCard() {
       setError("Email atau password salah!")
       return
     }
-
-    setError("")
-    alert("Login berhasil!") // nanti bisa diganti redirect
+    // Redirect ke homepage setelah login berhasil
+    alert('login succes')
+    router.push('/pagess')
   }
 
   return (
     <Card className="w-[350px] h-full relative">
       <CardHeader className="mt-[30px] mb-[20px]">
+        <BrandHeader containerClassName="mb-2" />
         <CardTitle className="text-2xl">Sign In</CardTitle>
         <CardDescription>
           Sign in to access your account and manage your preferences.
@@ -114,7 +118,7 @@ export function LoginCard() {
             </div>
             
             <div className="text-sm text-gray-500">
-              Don't have Account?{" "}
+              Don&apos;t have Account?{" "}
               <a href="/register" className="text-blue-600 hover:underline">
                 Sign Up here
               </a>
