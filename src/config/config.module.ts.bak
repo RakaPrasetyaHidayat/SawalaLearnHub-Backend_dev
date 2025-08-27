@@ -1,0 +1,74 @@
+import { Module } from '@nestjs/common';
+import { ConfigModule as NestConfigModule } from '@nestjs/config';
+import * as dotenv from 'dotenv';
+import { z } from 'zod';
+import { API_CONFIG, ApiConfig } from './api.config';
+
+dotenv.config();
+
+const EnvSchema = z.object({
+  SUPABASE_URL: z.string().url(),
+  SUPABASE_ANON_KEY: z.string().min(1),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().min(1),
+  SUPABASE_JWT_SECRET: z.string().min(1),
+  JWT_SECRET: z.string().min(1),
+
+  // Server
+  PORT: z.coerce.number().default(3000),
+  NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+
+  // API
+  API_GLOBAL_PREFIX: z.string().default('api'),
+  API_ENABLE_VERSIONING: z.coerce.boolean().default(true),
+  API_VERSIONING_TYPE: z.enum(['uri', 'header']).default('uri'),
+  API_DEFAULT_VERSION: z.string().default('v1'),
+  API_ENABLE_CORS: z.coerce.boolean().default(true),
+  API_CORS_ORIGIN: z.string().default('*'),
+  API_CORS_CREDENTIALS: z.coerce.boolean().default(true)
+});
+
+type Env = z.infer<typeof EnvSchema>;
+
+export const validateEnv = (config: Record<string, any>) => {
+  const result = EnvSchema.safeParse(config);
+  if (!result.success) {
+    console.error('❌ Environment variables validation failed', result.error.format());
+    throw new Error('Environment variables validation failed');
+  }
+  return result.data;
+};
+
+@Module({
+  imports: [
+    NestConfigModule.forRoot({
+      isGlobal: true,
+      validate: validateEnv,
+    }),
+  ],
+})
+
+const rawEnv = EnvSchema.parse(process.env);
+
+const env: Env = rawEnv;
+
+const apiConfig: ApiConfig = {
+  globalPrefix: env.API_GLOBAL_PREFIX,
+  enableVersioning: env.API_ENABLE_VERSIONING,
+  versioningType: env.API_VERSIONING_TYPE,
+  defaultVersion: env.API_DEFAULT_VERSION,
+  enableCors: env.API_ENABLE_CORS,
+  cors: {
+    origin: env.API_CORS_ORIGIN === '*' ? true : env.API_CORS_ORIGIN,
+    credentials: env.API_CORS_CREDENTIALS,
+  },
+};
+
+
+@Module({
+  providers: [
+    { provide: 'ENV', useValue: env as Env },
+    { provide: API_CONFIG, useValue: apiConfig },
+  ],
+  exports: ['ENV', API_CONFIG],
+})
+export class ConfigModule { }
