@@ -1,10 +1,20 @@
-import { Controller, Get, Res } from '@nestjs/common';
+import { Controller, Get, Res, Options, All } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 
 @ApiTags('App')
 @Controller()
 export class AppController {
+  
+  // Handle preflight OPTIONS requests
+  @Options('*')
+  handleOptions(@Res() res: Response) {
+    res.header('Access-Control-Allow-Origin', '*');
+    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
+    res.header('Access-Control-Allow-Credentials', 'true');
+    res.status(200).end();
+  }
   @Get()
   @ApiOperation({ summary: 'Get API information' })
   @ApiResponse({ 

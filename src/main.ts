@@ -30,20 +30,75 @@ export async function bootstrap(): Promise<NestExpressApplication> {
       console.log('Creating Nest application...');
       app = await NestFactory.create<NestExpressApplication>(AppModule);
 
-      // Configure CORS
+      // Configure CORS - Allow all origins for development and specific origins for production
       console.log('Configuring CORS...');
-      app.enableCors({
-        origin: [
-          'http://localhost:3001',
-          'https://learnhub-be-dev.vercel.app',
-          'https://learnhubbackend-b2s4hkqrj-rakaprasetyahidayats-projects.vercel.app',
-          'https://learnhubbackenddev.vercel.app',
-          /\.vercel\.app$/
-        ],
+      const corsOptions = {
+        origin: function (origin, callback) {
+          // Allow requests with no origin (like mobile apps or curl requests)
+          if (!origin) return callback(null, true);
+          
+          // In development, allow all origins
+          if (process.env.NODE_ENV === 'development') {
+            return callback(null, true);
+          }
+          
+          // In production, check against allowed origins
+          const allowedOrigins = [
+            'http://localhost:3000',
+            'http://localhost:3001',
+            'https://localhost:3000',
+            'https://localhost:3001',
+            'https://learnhub-be-dev.vercel.app',
+            'https://learnhubbackend-b2s4hkqrj-rakaprasetyahidayats-projects.vercel.app',
+            'https://learnhubbackenddev.vercel.app',
+            // Add your frontend domain here
+            /^https:\/\/.*\.vercel\.app$/,
+            /^http:\/\/localhost:\d+$/,
+            /^https:\/\/localhost:\d+$/
+          ];
+          
+          const isAllowed = allowedOrigins.some(allowedOrigin => {
+            if (typeof allowedOrigin === 'string') {
+              return origin === allowedOrigin;
+            } else if (allowedOrigin instanceof RegExp) {
+              return allowedOrigin.test(origin);
+            }
+            return false;
+          });
+          
+          if (isAllowed) {
+            callback(null, true);
+          } else {
+            console.log('CORS blocked origin:', origin);
+            callback(new Error('Not allowed by CORS'));
+          }
+        },
         credentials: true,
-        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-        allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
-      });
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS', 'HEAD'],
+        allowedHeaders: [
+          'Origin',
+          'X-Requested-With',
+          'Content-Type',
+          'Accept',
+          'Authorization',
+          'Cache-Control',
+          'X-HTTP-Method-Override',
+          'Access-Control-Allow-Origin',
+          'Access-Control-Allow-Headers',
+          'Access-Control-Allow-Methods',
+          'Access-Control-Allow-Credentials'
+        ],
+        exposedHeaders: [
+          'X-Total-Count',
+          'X-Page-Count',
+          'X-Current-Page',
+          'X-Per-Page'
+        ],
+        optionsSuccessStatus: 200, // Some legacy browsers (IE11, various SmartTVs) choke on 204
+        preflightContinue: false
+      };
+      
+      app.enableCors(corsOptions);
 
       // Global pipes
       console.log('Setting up global pipes...');

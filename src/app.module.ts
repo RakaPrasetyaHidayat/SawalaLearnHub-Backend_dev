@@ -4,6 +4,7 @@ import { AppController } from './app.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { SupabaseModule } from './infra/supabase/supabase.module';
 import { TimeoutMiddleware } from './common/middleware/timeout.middleware';
+import { CorsMiddleware } from './common/middleware/cors.middleware';
 
 @Module({
   imports: [
@@ -18,6 +19,10 @@ import { TimeoutMiddleware } from './common/middleware/timeout.middleware';
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(TimeoutMiddleware).forRoutes('*');
+    consumer
+      .apply(CorsMiddleware)
+      .forRoutes('*')
+      .apply(TimeoutMiddleware)
+      .forRoutes('*');
   }
 }
