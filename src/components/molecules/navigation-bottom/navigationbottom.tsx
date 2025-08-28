@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { Home, Bell, Users2, User } from "lucide-react"
+import { Home, Users2, User } from "lucide-react"
 import React from "react"
 
 type NavItem = {
@@ -13,24 +13,19 @@ type NavItem = {
 
 const items: NavItem[] = [
     {
-        href: "/pagess",
+        href: "/main-Page",
         label: "Home",
-        icon: ({ active }) => <Home size={22} className={active ? "text-blue-500" : "text-black"} />,
+        icon: ({ active }) => <Home className={`${active ? "text-blue-500" : "text-black"} w-5 h-5 max-[360px]:w-4 max-[360px]:h-4`} />,
     },
     {
-        href: "/pagess/notifications",
-        label: "Bell",
-        icon: ({ active }) => <Bell size={22} className={active ? "text-blue-500" : "text-black"} />,
-    },
-    {
-        href: "/pagess/members",
+        href: "/main-Page/members",
         label: "Member",
-        icon: ({ active }) => <Users2 size={22} className={active ? "text-blue-500" : "text-black"} />,
+        icon: ({ active }) => <Users2 className={`${active ? "text-blue-500" : "text-black"} w-5 h-5 max-[360px]:w-4 max-[360px]:h-4`} />,
     },
     {
-        href: "/pagess/profile",
+        href: "/main-Page/profile",
         label: "You",
-        icon: ({ active }) => <User size={22} className={active ? "text-blue-500" : "text-black"} />,
+        icon: ({ active }) => <User className={`${active ? "text-blue-500" : "text-black"} w-5 h-5 max-[360px]:w-4 max-[360px]:h-4`} />,
     },
 ]
 
@@ -38,8 +33,9 @@ export default function NavigationBottom() {
     const pathname = usePathname()
 
     return (
-        <nav className="absolute bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-sm">
-            <ul className="flex items-center justify-around py-2">
+        <nav className="fixed bottom-0 inset-x-0 z-[9999] w-[345px] max-[349px]:w-full m-auto bg-white/95 border-t border-gray-200 shadow-sm">
+            <div className="mx-auto w-[350px] max-w-[350px] max-[349px]:w-full max-[349px]:px-2">
+            <ul className="flex items-center justify-around py-2 max-[360px]:py-1">
                 {items.map((item) => {
                     const active = pathname === item.href
 
@@ -51,7 +47,7 @@ export default function NavigationBottom() {
                                 aria-current={active ? "page" : undefined}
                             >
                                 {item.icon({ active })}
-                                <span className={`text-xs ${active ? "text-blue-500" : "text-black"}`}>
+                                <span className={`text-xs max-[360px]:text-[10px] ${active ? "text-blue-500" : "text-black"}`}>
                                     {item.label}
                                 </span>
                             </Link>
@@ -59,6 +55,7 @@ export default function NavigationBottom() {
                     )
                 })}
             </ul>
+            </div>
         </nav>
     )
 }

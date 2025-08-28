@@ -1,4 +1,4 @@
-import { LoginCard } from '@/components/teamplates/login-card'
+import { LoginCard } from '@/components/templates/login-card'
 import React from 'react'
 
 const Login = () => {

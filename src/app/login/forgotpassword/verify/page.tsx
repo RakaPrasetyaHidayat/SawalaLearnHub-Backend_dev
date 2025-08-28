@@ -1,4 +1,4 @@
-import Verify from '@/components/teamplates/verify/verify'
+import Verify from '@/components/templates/verify/verify'
 import React, { Suspense } from 'react'
 
 function VerifyPage() {

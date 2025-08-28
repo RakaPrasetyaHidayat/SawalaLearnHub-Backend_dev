@@ -1,4 +1,4 @@
-import { Newpass } from '@/components/teamplates/n-password'
+import { Newpass } from '@/components/templates/n-password'
 
 import React from 'react'
 

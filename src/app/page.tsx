@@ -1,4 +1,4 @@
-import { LoginCard } from "@/components/teamplates/login-card/login-card";
+import { LoginCard } from "@/components/templates/login-card/login-card";
 
 
 export default function Home() {

@@ -1,4 +1,4 @@
-import ForgotPassword from '@/components/teamplates/forgotpassword/forgotpass'
+import ForgotPassword from '@/components/templates/forgotpassword/forgotpass'
 import React from 'react'
 
 function ForgotPasswordPage() {

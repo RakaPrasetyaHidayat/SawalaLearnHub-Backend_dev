@@ -1,0 +1,1 @@
+export { AddResourcesPage } from "./add-resources-page";
