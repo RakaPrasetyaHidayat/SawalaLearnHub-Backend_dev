@@ -19,6 +19,11 @@ let app: NestExpressApplication | null = null;
 
 export async function bootstrap(): Promise<NestExpressApplication> {
   console.log('Bootstrap function started');
+  console.log('Environment variables check:');
+  console.log('- NODE_ENV:', process.env.NODE_ENV);
+  console.log('- VERCEL:', process.env.VERCEL);
+  console.log('- SUPABASE_URL:', process.env.SUPABASE_URL ? 'Set' : 'Not set');
+  console.log('- JWT_SECRET:', process.env.JWT_SECRET ? 'Set' : 'Not set');
 
   if (!app) {
     try {
@@ -28,7 +33,16 @@ export async function bootstrap(): Promise<NestExpressApplication> {
       // Configure CORS
       console.log('Configuring CORS...');
       app.enableCors({
-        origin: ['http://localhost:3001', 'https://learnhub-be-dev.vercel.app'],
+        origin: [
+          'http://localhost:3001',
+          'https://learnhub-be-dev.vercel.app',
+          'https://learnhubbackend-b2s4hkqrj-rakaprasetyahidayats-projects.vercel.app',
+          'https://learnhubbackenddev.vercel.app',
+          /\.vercel\.app$/
+        ],
+        credentials: true,
+        methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+        allowedHeaders: ['Content-Type', 'Authorization', 'Accept'],
       });
 
       // Global pipes
@@ -47,14 +61,17 @@ export async function bootstrap(): Promise<NestExpressApplication> {
         SwaggerModule.setup('api/docs', app, document);
       }
 
-      if (!process.env.VERCEL) {
+      // Only start the server if not in Vercel environment
+      if (!process.env.VERCEL && !process.env.AWS_LAMBDA_FUNCTION_NAME) {
         const port = process.env.PORT || 3001;
         console.log(`Using port: ${port}`);
         console.log('Initializing server...');
         await app.listen(port);
         console.log(`Server running on http://localhost:${port}`);
       } else {
-        console.log('Running in Vercel environment, skipping app.listen');
+        console.log('Running in serverless environment, skipping app.listen');
+        // Initialize the app but don't start listening
+        await app.init();
       }
 
       console.log('Bootstrap function completed');

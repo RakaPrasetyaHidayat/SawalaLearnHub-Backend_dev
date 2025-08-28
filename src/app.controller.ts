@@ -14,7 +14,10 @@ export class AppController {
   getRoot() {
     return {
       status: 'success',
-      message: 'API information',
+      message: 'LearnHub API is running',
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV || 'development',
+      version: '1.0.0',
       data: {
         description: 'LearnHub API endpoints',
         endpoints: {
@@ -27,6 +30,11 @@ export class AppController {
             method: 'GET',
             url: '/api/stats',
             description: 'API statistics',
+          },
+          auth: {
+            method: 'GET',
+            url: '/api/auth',
+            description: 'Authentication endpoints',
           },
         },
       },

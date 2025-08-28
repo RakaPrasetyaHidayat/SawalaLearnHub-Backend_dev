@@ -15,7 +15,7 @@ import { SupabaseModule } from '../../infra/supabase/supabase.module';
       imports: [ConfigModule],
       inject: [ConfigService],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get<string>('jwt.secret'),
+        secret: configService.get<string>('JWT_SECRET'),
         signOptions: {
           expiresIn: '24h',
         },
