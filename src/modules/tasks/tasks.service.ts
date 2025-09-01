@@ -1,57 +1,51 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
-import { SupabaseService } from '@/infra/supabase/supabase.service';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { BaseService } from '../../common/services/base.service';
 import { CreateTaskDto, SubmitTaskDto, UpdateTaskDto } from './dto/task.dto';
-import { SubmissionStatus } from '@/common/enums';
+import { TaskStatus, SubmissionStatus } from '../../common/enums/database.enum';
+import { PaginationParams } from '../../common/utils/api.utils';
 
 @Injectable()
-export class TasksService {
-  constructor(private readonly supabaseService: SupabaseService) {}
+export class TasksService extends BaseService {
 
   async createTask(createTaskDto: CreateTaskDto, adminId: string) {
-    const { data: task, error } = await this.supabaseService
-      .getClient()
-      .from('tasks')
-      .insert({ ...createTaskDto, created_by: adminId })
-      .select()
-      .single();
+    try {
+      const result = await this.callRpc('create_task', {
+        p_title: createTaskDto.title,
+        p_description: createTaskDto.description,
+        p_deadline: createTaskDto.deadline,
+        p_channel_year: parseInt(createTaskDto.angkatan),
+        p_created_by: adminId
+      });
 
-    if (error) throw error;
-    return task;
+      return {
+        status: 'success',
+        message: 'Task created successfully',
+        data: result
+      };
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 
   async submitTask(taskId: string, userId: string, submitTaskDto: SubmitTaskDto) {
-    const { data: task, error: taskError } = await this.supabaseService
-      .getClient()
-      .from('tasks')
-      .select('deadline')
-      .eq('id', taskId)
-      .single();
+    try {
+      const result = await this.callRpc('submit_task', {
+        p_task_id: taskId,
+        p_user_id: userId,
+        p_content: submitTaskDto.submission_url + '\n' + (submitTaskDto.notes || '')
+      });
 
-    if (taskError || !task) {
-      throw new NotFoundException('Task not found');
+      return {
+        status: 'success',
+        message: 'Task submitted successfully',
+        data: result
+      };
+    } catch (error) {
+      if (error.message.includes('not found')) {
+        throw new NotFoundException(error.message);
+      }
+      throw new BadRequestException(error.message);
     }
-
-    const now = new Date();
-    const deadline = new Date(task.deadline);
-    const status =
-      now > deadline ? SubmissionStatus.OVERDUE : SubmissionStatus.SUBMITTED;
-
-    const { data: submission, error: submissionError } = await this.supabaseService
-      .getClient()
-      .from('task_submissions')
-      .insert({
-        task_id: taskId,
-        user_id: userId,
-        submission_url: submitTaskDto.submission_url,
-        notes: submitTaskDto.notes,
-        status: status,
-        submitted_at: now.toISOString(),
-      })
-      .select()
-      .single();
-
-    if (submissionError) throw submissionError;
-    return submission;
   }
 
   async updateTaskStatus(
@@ -60,61 +54,84 @@ export class TasksService {
     adminId: string,
     updateTaskDto: UpdateTaskDto,
   ) {
-    const { data: submission } = await this.supabaseService
-      .getClient()
-      .from('task_submissions')
-      .select('id')
-      .eq('task_id', taskId)
-      .eq('user_id', userId)
-      .single();
+    try {
+      // First get the submission ID
+      const { data: submission } = await this.client
+        .from('task_submissions')
+        .select('id')
+        .eq('task_id', taskId)
+        .eq('user_id', userId)
+        .single();
 
-    if (!submission) {
-      throw new NotFoundException('Task submission not found');
+      if (!submission) {
+        throw new NotFoundException('Task submission not found');
+      }
+
+      const result = await this.callRpc('review_submission', {
+        p_submission_id: submission.id,
+        p_reviewer_id: adminId,
+        p_status: updateTaskDto.status,
+        p_feedback: updateTaskDto.feedback
+      });
+
+      return {
+        status: 'success',
+        message: 'Task submission reviewed successfully',
+        data: result
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(error.message);
     }
-
-    const { data: updatedSubmission, error } = await this.supabaseService
-      .getClient()
-      .from('task_submissions')
-      .update({
-        status: updateTaskDto.status,
-        feedback: updateTaskDto.feedback,
-        reviewed_by: adminId,
-        reviewed_at: new Date().toISOString(),
-      })
-      .eq('id', submission.id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return updatedSubmission;
   }
 
   async getTasksByYear(year: string) {
-    const { data: tasks, error } = await this.supabaseService
-      .getClient()
-      .from('tasks')
-      .select('*')
-      .eq('angkatan', year)
-      .order('created_at', { ascending: false });
+    try {
+      const result = await this.callRpc('get_tasks_by_year', {
+        p_year: year
+      });
 
-    if (error) throw error;
-    return tasks;
+      return {
+        status: 'success',
+        data: result
+      };
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
   }
 
   async getUserTasks(userId: string) {
-    const { data: submissions, error } = await this.supabaseService
-      .getClient()
-      .from('task_submissions')
-      .select(
-        `
-        *,
-        task:tasks(*)
-      `,
-      )
-      .eq('user_id', userId)
-      .order('submitted_at', { ascending: false });
+    try {
+      const result = await this.callRpc('get_user_tasks', {
+        p_user_id: userId
+      });
 
-    if (error) throw error;
-    return submissions;
+      return {
+        status: 'success',
+        data: result
+      };
+    } catch (error) {
+      throw new BadRequestException(error.message);
+    }
+  }
+
+  async findTaskById(taskId: string) {
+    try {
+      const result = await this.findOne('tasks', taskId);
+      if (!result) {
+        throw new NotFoundException('Task not found');
+      }
+      return {
+        status: 'success',
+        data: result
+      };
+    } catch (error) {
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(error.message);
+    }
   }
 }

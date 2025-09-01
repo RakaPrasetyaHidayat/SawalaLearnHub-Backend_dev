@@ -1,184 +1,137 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+// supabase.service.ts
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { ConfigService } from '../../config/config.service';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
-const NodeCache = require('node-cache');
-
-import { QueryOptions, StorageOptions } from './supabase.types';
-
 @Injectable()
-export class SupabaseService {
-  private client: SupabaseClient;
-  private adminClient: SupabaseClient;
-  private cache: any; // keep as any to avoid runtime/typing mismatch
-  private apiTimeout: number;
+export class SupabaseService implements OnModuleInit {
+  private client: SupabaseClient;       // pakai anon key
+  private adminClient: SupabaseClient;  // pakai service role key
 
-  constructor(private configService: ConfigService) {
-    const supabaseUrl = this.configService.get<string>('SUPABASE_URL');
-    const supabaseAnonKey = this.configService.get<string>('SUPABASE_ANON_KEY');
-    const supabaseServiceRoleKey = this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY');
+  constructor(private configService: ConfigService) {}
 
-    if (!supabaseUrl || !supabaseAnonKey || !supabaseServiceRoleKey) {
-      throw new Error('Missing Supabase configuration');
-    }
+  async onModuleInit() {
+    const { url, anonKey, serviceRoleKey } = this.configService.supabaseConfig;
 
-    this.client = createClient(supabaseUrl, supabaseAnonKey);
-    this.adminClient = createClient(supabaseUrl, supabaseServiceRoleKey);
-    this.apiTimeout = parseInt(process.env.API_TIMEOUT || '10000');
+    if (!url) throw new Error('❌ Missing Supabase URL');
+    if (!anonKey) throw new Error('❌ Missing Supabase Anon Key');
+    if (!serviceRoleKey) throw new Error('❌ Missing Supabase Service Role Key');
 
-    this.cache = new NodeCache({
-      stdTTL: parseInt(this.configService.get<string>('API_CACHE_EXPIRATION') || '300'),
+    // ✅ Client user (anon)
+    this.client = createClient(url, anonKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
     });
+
+    // ✅ Client admin (service role)
+    this.adminClient = createClient(url, serviceRoleKey, {
+      auth: {
+        persistSession: false,
+        autoRefreshToken: false,
+      },
+    });
+
+    console.log('✅ Supabase initialized');
   }
 
   public getClient(useAdmin = false): SupabaseClient {
-    return useAdmin ? this.adminClient : this.client;
+    const client = useAdmin ? this.adminClient : this.client;
+    if (!client) {
+      throw new Error(`Supabase ${useAdmin ? 'admin ' : ''}client not initialized`);
+    }
+    return client;
   }
 
-  private async withTimeout<T>(operation: Promise<T>): Promise<T> {
-    return Promise.race([
-      operation,
-      new Promise<T>((_, reject) =>
-        setTimeout(() => reject(new Error('Operation timed out')), this.apiTimeout)
-      ),
-    ]);
-  }
+  // =============================
+  // AUTHENTICATION
+  // =============================
 
-  // CREATE
-  async create<T>(table: string, data: Partial<T>, useAdmin = false): Promise<T> {
-    const { data: result, error }: { data: T; error: any } = await this.withTimeout(
-      new Promise((resolve, reject) => {
-        (this.getClient(useAdmin)
-          .from(table)
-          .insert(data)
-          .select()
-          .single() as unknown as Promise<{ data: T; error: any }>)
-          .then(resolve)
-          .catch(reject);
-      })
-    );
-    if (error) throw error;
-    return result;
-  }
-
-  // READ ONE
-  async findOne<T>(table: string, id: string, useAdmin = false): Promise<T | null> {
-    const { data, error }: { data: T | null; error: any } = await this.withTimeout(
-      new Promise((resolve, reject) => {
-        (this.getClient(useAdmin)
-          .from(table)
-          .select('*')
-          .eq('id', id)
-          .single() as unknown as Promise<{ data: T | null; error: any }>)
-          .then(resolve)
-          .catch(reject);
-      })
-    );
+  async register(email: string, password: string) {
+    const { data, error } = await this.client.auth.signUp({
+      email,
+      password,
+    });
     if (error) throw error;
     return data;
   }
 
-  // READ MANY
-  async findMany<T>(
-    table: string,
-    options: QueryOptions = {},
-    useAdmin = false
-  ): Promise<{ data: T[]; count: number }> {
-    const { page = 1, limit = 10, orderBy = 'created_at', orderDirection = 'desc' } = options;
-    const offset = (page - 1) * limit;
-
-    const { data, count, error }: { data: T[]; count: number; error: any } = await this.withTimeout(
-      new Promise((resolve, reject) => {
-        (this.getClient(useAdmin)
-          .from(table)
-          .select('*', { count: 'exact' })
-          .order(orderBy, { ascending: orderDirection === 'asc' })
-          .range(offset, offset + limit - 1) as unknown as Promise<{ data: T[]; count: number; error: any }>)
-          .then(resolve)
-          .catch(reject);
-      })
-    );
+  async login(email: string, password: string) {
+    const { data, error } = await this.client.auth.signInWithPassword({
+      email,
+      password,
+    });
     if (error) throw error;
-
-    return { data, count };
+    return data;
   }
 
-  // UPDATE
+  async logout() {
+    const { error } = await this.client.auth.signOut();
+    if (error) throw error;
+    return { message: 'Logged out successfully' };
+  }
+
+  async getUser(accessToken: string) {
+    const { data, error } = await this.client.auth.getUser(accessToken);
+    if (error) throw error;
+    return data.user;
+  }
+
+  // =============================
+  // CRUD METHODS
+  // =============================
+
+  async create<T>(table: string, data: Partial<T>, useAdmin = false): Promise<T> {
+    const { data: result, error } = await this.getClient(useAdmin)
+      .from(table)
+      .insert(data)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return result as T;
+  }
+
+  async findOne<T>(table: string, id: string, useAdmin = false): Promise<T | null> {
+    const { data, error } = await this.getClient(useAdmin)
+      .from(table)
+      .select('*')
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    return data as T;
+  }
+
+  async findMany<T>(table: string, limit = 10, useAdmin = false): Promise<T[]> {
+    const { data, error } = await this.getClient(useAdmin)
+      .from(table)
+      .select('*')
+      .limit(limit);
+
+    if (error) throw error;
+    return data as T[];
+  }
+
   async update<T>(table: string, id: string, data: Partial<T>, useAdmin = false): Promise<T> {
-    const { data: result, error }: { data: T; error: any } = await this.withTimeout(
-      new Promise((resolve, reject) => {
-        (this.getClient(useAdmin)
-          .from(table)
-          .update(data)
-          .eq('id', id)
-          .select()
-          .single() as unknown as Promise<{ data: T; error: any }>)
-          .then(resolve)
-          .catch(reject);
-      })
-    );
+    const { data: result, error } = await this.getClient(useAdmin)
+      .from(table)
+      .update(data)
+      .eq('id', id)
+      .select()
+      .single();
+
     if (error) throw error;
-    return result;
+    return result as T;
   }
 
-  // DELETE
   async delete(table: string, id: string, useAdmin = false): Promise<void> {
-    const { error }: { error: any } = await this.withTimeout(
-      new Promise((resolve, reject) => {
-        (this.getClient(useAdmin)
-          .from(table)
-          .delete()
-          .eq('id', id) as unknown as Promise<{ error: any }>)
-          .then(resolve)
-          .catch(reject);
-      })
-    );
+    const { error } = await this.getClient(useAdmin)
+      .from(table)
+      .delete()
+      .eq('id', id);
+
     if (error) throw error;
-  }
-
-  // UPLOAD FILE
-  async uploadFile(file: Buffer, fileName: string, options: StorageOptions = {}): Promise<string> {
-    const { bucket = 'public', path = '', upsert = false } = options;
-    const filePath = path ? `${path}/${fileName}` : fileName;
-
-    const uploadRes = await this.withTimeout(
-      // For Node environments, file can be a Buffer. Supabase SDK handles Buffer in Node.
-      this.adminClient.storage.from(bucket).upload(filePath, file as any, {
-        upsert,
-        contentType: this.getContentType(fileName),
-      }) as any
-    );
-    const { error: uploadError } = uploadRes as any;
-    if (uploadError) throw uploadError;
-
-    const publicRes = this.adminClient.storage.from(bucket).getPublicUrl(filePath) as any;
-    const publicUrl = publicRes?.data?.publicUrl || publicRes?.publicUrl;
-    if (!publicUrl) throw new Error('Failed to get public URL for uploaded file');
-    return publicUrl;
-  }
-
-  async deleteFile(fileName: string, options: StorageOptions = {}): Promise<void> {
-    const { bucket = 'public', path = '' } = options;
-    const filePath = path ? `${path}/${fileName}` : fileName;
-
-    const res = await this.withTimeout(
-      this.adminClient.storage.from(bucket).remove([filePath]) as any
-    );
-    const { error } = res as any;
-    if (error) throw error;
-  }
-
-  private getContentType(fileName: string): string {
-    const ext = fileName.split('.').pop()?.toLowerCase();
-    const mimeTypes: { [key: string]: string } = {
-      pdf: 'application/pdf',
-      doc: 'application/msword',
-      docx: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-      jpg: 'image/jpeg',
-      jpeg: 'image/jpeg',
-      png: 'image/png',
-      gif: 'image/gif',
-    };
-    return mimeTypes[ext || ''] || 'application/octet-stream';
   }
 }

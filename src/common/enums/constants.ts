@@ -1,6 +1,7 @@
 export enum UserRole {
   ADMIN = 'ADMIN',
-  USER = 'USER'
+  SISWA = 'SISWA',
+  MENTOR = 'MENTOR'
 }
 
 export enum UserStatus {

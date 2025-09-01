@@ -7,7 +7,7 @@ export type Database = {
           full_name: string;
           email: string;
           password_hash: string;
-          role: 'admin' | 'mentor' | 'student';
+          role: 'ADMIN' | 'MENTOR' | 'SISWA';
           division_id: string;
           angkatan: number;
           school_name: string;
@@ -29,7 +29,7 @@ export type Database = {
       // Add other tables as needed
     };
     Enums: {
-      user_role: 'admin' | 'mentor' | 'student';
+      user_role: 'ADMIN' | 'MENTOR' | 'SISWA';
       user_status: 'pending' | 'approved' | 'rejected';
       alert_type: 'approve' | 'reject';
       alert_status: 'yes' | 'no';

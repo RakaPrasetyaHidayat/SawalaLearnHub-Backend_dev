@@ -1,9 +1,41 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { 
+  Injectable, 
+  UnauthorizedException, 
+  BadRequestException, 
+  InternalServerErrorException 
+} from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { SupabaseService } from '../../infra/supabase/supabase.service';
-import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
-import { UserStatus } from '../../common/enums';
+import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { UserRole, UserStatus } from '../../common/enums/database.enum';
+
+export interface AuthResponse<T> {
+  status: string;
+  message: string;
+  data: T;
+}
+
+export interface AuthUser {
+  id: string;
+  email: string;
+  full_name: string;
+  role: UserRole;
+  status: UserStatus;
+  channel_year?: number;
+  school_name?: string;
+  division_id?: string;
+}
+
+export interface LoginResponse {
+  access_token: string;
+  user: {
+    id: string;
+    email: string;
+    full_name?: string;
+    role: UserRole;
+  };
+}
 
 @Injectable()
 export class AuthService {
@@ -12,147 +44,162 @@ export class AuthService {
     private readonly jwtService: JwtService,
   ) {}
 
-  async register(registerDto: RegisterDto) {
-    const { data: existingUser } = await this.supabaseService
-      .getClient()
-      .from('users')
-      .select('id')
-      .eq('email', registerDto.email)
-      .single();
-
-    if (existingUser) {
-      throw new UnauthorizedException('Email already registered');
-    }
-
-    const hashedPassword = await bcrypt.hash(registerDto.password, 10);
-
-    const { password, ...restOfDto } = registerDto;
-
-    const { data: user, error } = await this.supabaseService
-      .getClient()
-      .from('users')
-      .insert({
-        ...restOfDto,
-        password_hash: hashedPassword,
-        status: UserStatus.PENDING,
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    const { password_hash, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+  /**
+   * Helper untuk pastikan query selalu pakai service_role (bukan anon).
+   * Supaya RLS tidak menghalangi proses auth (register, login, me).
+   */
+  private get adminClient() {
+    return this.supabaseService.getClient(true); // ✅ true = pakai SERVICE_ROLE
   }
 
-  async login(loginDto: LoginDto) {
-    const { data: user, error } = await this.supabaseService
-      .getClient()
-      .from('users')
-      .select()
-      .eq('email', loginDto.email)
-      .single();
-
-    if (error || !user) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.password_hash,
-    );
-
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
-    }
-
-    // Check user status
-    switch (user.status) {
-      case UserStatus.PENDING:
-        throw new UnauthorizedException({
-          message: 'Your account is pending approval',
-          status: UserStatus.PENDING,
-        });
-      case UserStatus.REJECTED:
-        throw new UnauthorizedException({
-          message: 'Your account has been rejected',
-          status: UserStatus.REJECTED,
-        });
-      case UserStatus.APPROVED:
-        break; // Continue to login
-      default:
-        throw new UnauthorizedException('Invalid account status');
-    }
-
-    const token = this.jwtService.sign({
-      sub: user.id,
-      email: user.email,
-      role: user.role,
-    });
-
-    const { password_hash, ...userWithoutPassword } = user;
-
-    return {
-      user: userWithoutPassword,
-      access_token: token,
-    };
-  }
-
-  async forgotPassword(forgotPasswordDto: ForgotPasswordDto) {
-    // In a real app, you would generate a token, save it, and email it.
-    // For now, we'll just acknowledge the request for security.
-    const { data: user } = await this.supabaseService
-      .getClient()
-      .from('users')
-      .select('id')
-      .eq('email', forgotPasswordDto.email)
-      .single();
-
-    if (user) {
-      // TODO: Implement actual email sending with a reset token
-      console.log(`Password reset requested for ${user.id}`);
-    }
-
-    return {
-      message:
-        'If your email is registered, you will receive a password reset link.',
-    };
-  }
-
-  async resetPassword(resetPasswordDto: ResetPasswordDto) {
-    // This is a simplified version. A real implementation would require
-    // validating the token from the forgotPassword step.
+  private async handleDatabaseOperation<T>(operation: () => Promise<T>): Promise<T> {
     try {
-      const payload = this.jwtService.verify(resetPasswordDto.token);
-      const hashedPassword = await bcrypt.hash(resetPasswordDto.new_password, 10);
-
-      const { error } = await this.supabaseService
-        .getClient()
-        .from('users')
-        .update({ password_hash: hashedPassword })
-        .eq('id', payload.sub);
-
-      if (error) throw error;
-
-      return { message: 'Password has been reset successfully.' };
-    } catch (e) {
-      throw new UnauthorizedException('Invalid or expired reset token.');
+      return await operation();
+    } catch (error) {
+      console.error('Database operation error:', error);
+      
+      if (error.message?.includes('API key')) {
+        throw new InternalServerErrorException('Database configuration error');
+      }
+      
+      throw error instanceof Error ? error : new InternalServerErrorException('Database operation failed');
     }
   }
 
-  async me(userId: string) {
-    const { data: user, error } = await this.supabaseService
-      .getClient()
-      .from('users')
-      .select()
-      .eq('id', userId)
-      .single();
+  async register(registerDto: RegisterDto): Promise<AuthResponse<AuthUser>> {
+    return this.handleDatabaseOperation(async () => {
+      const email = registerDto.email.toLowerCase().trim();
 
-    if (error || !user) {
-      throw new UnauthorizedException();
-    }
+      // ✅ Cari user existing (pakai service_role)
+      const { data: existingUser, error: searchError } = await this.adminClient
+        .from('users')
+        .select('id, email, status')
+        .eq('email', email)
+        .maybeSingle();
 
-    const { password_hash, ...userWithoutPassword } = user;
-    return userWithoutPassword;
+      if (searchError) throw new InternalServerErrorException(searchError.message);
+
+      if (existingUser) {
+        throw new BadRequestException({
+          message: 'User already exists',
+          details: existingUser.status === UserStatus.PENDING 
+            ? 'Your registration is pending approval' 
+            : 'An account with this email already exists'
+        });
+      }
+
+      // ✅ Hash password
+      const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+      const currentYear = new Date().getFullYear();
+
+      // ✅ Buat user baru
+      const userData = {
+        email,
+        password: hashedPassword,
+        full_name: registerDto.full_name,
+        role: UserRole.SISWA,
+        status: UserStatus.PENDING,
+        channel_year: registerDto.channel_year || currentYear,
+        division_id: registerDto.division_id || null,
+        school_name: registerDto.school_name || null,
+      };
+
+      const { data: user, error: insertError } = await this.adminClient
+        .from('users')
+        .insert([userData])
+        .select()
+        .single();
+
+      if (insertError) throw new InternalServerErrorException(insertError.message);
+      if (!user) throw new InternalServerErrorException('Failed to create user');
+
+      return {
+        status: 'success',
+        message: 'Registration successful. Please wait for admin approval.',
+        data: user,
+      };
+    });
+  }
+
+  async login(loginDto: LoginDto): Promise<AuthResponse<LoginResponse>> {
+    return this.handleDatabaseOperation(async () => {
+      const email = loginDto.email.toLowerCase().trim();
+
+      // ✅ Ambil user by email (pakai service_role agar bisa baca password)
+      const { data: user, error: searchError } = await this.adminClient
+        .from('users')
+        .select('*')
+        .eq('email', email)
+        .maybeSingle();
+
+      if (searchError) throw new InternalServerErrorException(searchError.message);
+      if (!user) throw new UnauthorizedException('Invalid credentials');
+
+      // ✅ Status check
+      if (user.status === UserStatus.PENDING) {
+        throw new UnauthorizedException({ 
+          message: 'Account is pending approval', 
+          status: user.status,
+          details: 'Please wait for admin approval'
+        });
+      }
+      if (user.status === UserStatus.REJECTED) {
+        throw new UnauthorizedException({ 
+          message: 'Account has been rejected', 
+          status: user.status,
+          details: 'Please contact administrator'
+        });
+      }
+      if (user.status !== UserStatus.APPROVED) {
+        throw new UnauthorizedException({
+          message: `Invalid account status: ${user.status}`,
+          status: user.status,
+          details: 'Contact administrator for assistance'
+        });
+      }
+
+      // ✅ Cek password
+      const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+      if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
+
+      // ✅ Generate JWT
+      const payload = { sub: user.id, email: user.email, role: user.role };
+      const access_token = await this.jwtService.signAsync(payload);
+
+      return {
+        status: 'success',
+        message: 'Login successful',
+        data: {
+          access_token,
+          user: {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            role: user.role,
+          },
+        },
+      };
+    });
+  }
+
+  async me(userId: string): Promise<AuthResponse<AuthUser>> {
+    return this.handleDatabaseOperation(async () => {
+      // ✅ Ambil profil by id (pakai service_role agar leluasa)
+      const { data: user, error } = await this.adminClient
+        .from('users')
+        .select('id, email, full_name, role, status, channel_year, school_name, division_id')
+        .eq('id', userId)
+        .maybeSingle();
+
+      if (error) throw new InternalServerErrorException(error.message);
+      if (!user) throw new UnauthorizedException('User not found');
+
+      return {
+        status: 'success',
+        message: 'User profile retrieved successfully',
+        data: user,
+      };
+    });
   }
 }
+

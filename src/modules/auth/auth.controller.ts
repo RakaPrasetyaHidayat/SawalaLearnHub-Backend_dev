@@ -1,80 +1,58 @@
-import { Controller, Post, Body, UseGuards, Get, Options, Res } from '@nestjs/common';
-import { Response } from 'express';
+// auth.controller.ts
+import {
+  Controller,
+  Post,
+  Body,
+  UseGuards,
+  Get,
+  HttpCode,
+  HttpStatus,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
+import {
+  RegisterDto,
+  LoginDto,
+  ForgotPasswordDto,
+  ResetPasswordDto,
+} from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GetUser } from './decorators/get-user.decorator';
 
-@Controller('api/auth')
+@Controller('auth')
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
-  // Handle preflight OPTIONS requests for auth routes
-  @Options('*')
-  handleAuthOptions(@Res() res: Response) {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cache-Control');
-    res.header('Access-Control-Allow-Credentials', 'true');
-    res.status(200).end();
-  }
-
-  @Get()
-  async getAuthInfo() {
+  // ✅ Endpoint untuk cek apakah service jalan
+  @Get('ping')
+  async ping() {
     return {
       status: 'success',
-      message: 'Auth endpoints information',
+      message: 'Auth service is responsive',
       data: {
-        description: 'Authentication and authorization endpoints',
-        endpoints: {
-          register: {
-            method: 'POST',
-            url: '/api/auth/register',
-            description: 'Register a new user',
-          },
-          login: {
-            method: 'POST',
-            url: '/api/auth/login',
-            description: 'Login with credentials',
-          },
-          forgotPassword: {
-            method: 'POST',
-            url: '/api/auth/forgot-password',
-            description: 'Request password reset',
-          },
-          resetPassword: {
-            method: 'POST',
-            url: '/api/auth/reset-password',
-            description: 'Reset password with token',
-          },
-        },
+        timestamp: new Date().toISOString(),
+        service: 'authentication',
+        uptime: process.uptime(),
       },
     };
   }
 
+  // ✅ Register user baru
   @Post('register')
-  register(@Body() registerDto: RegisterDto) {
-    return this.authService.register(registerDto);
+  async register(@Body() registerDto: RegisterDto) {
+    return await this.authService.register(registerDto);
   }
 
+  // ✅ Login user
   @Post('login')
-  login(@Body() loginDto: LoginDto) {
-    return this.authService.login(loginDto);
+  @HttpCode(HttpStatus.OK) // Supaya tidak selalu return 201
+  async login(@Body() loginDto: LoginDto) {
+    return await this.authService.login(loginDto);
   }
 
-  @Post('forgot-password')
-  forgotPassword(@Body() forgotPasswordDto: ForgotPasswordDto) {
-    return this.authService.forgotPassword(forgotPasswordDto);
-  }
-
-  @Post('reset-password')
-  resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
-    return this.authService.resetPassword(resetPasswordDto);
-  }
-
+  // ✅ Mendapatkan data user yang sedang login
   @UseGuards(JwtAuthGuard)
   @Get('me')
-  me(@GetUser('sub') userId: string) {
-    return this.authService.me(userId);
+  async me(@GetUser('sub') userId: string) {
+    return await this.authService.me(userId);
   }
 }

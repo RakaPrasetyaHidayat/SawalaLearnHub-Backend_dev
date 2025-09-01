@@ -4,12 +4,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { CreateResourceDto } from './dto/resource.dto';
 
-@Controller('api/resources')
-@UseGuards(JwtAuthGuard)
+@Controller('resources')
 export class ResourcesController {
   constructor(private readonly resourcesService: ResourcesService) {}
 
-  @Get()
+  @Get('info')
   async getResourcesInfo() {
     return {
       status: 'success',
@@ -38,6 +37,7 @@ export class ResourcesController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   async createResource(
     @Body() createResourceDto: CreateResourceDto,
     @GetUser('id') userId: string,
@@ -51,11 +51,13 @@ export class ResourcesController {
   }
 
   @Get('year/:year')
+  @UseGuards(JwtAuthGuard)
   getResourcesByYear(@Param('year') year: string) {
     return this.resourcesService.getResourcesByYear(year);
   }
 
   @Get('users/:userId')
+  @UseGuards(JwtAuthGuard)
   getUserResources(@Param('userId') userId: string) {
     return this.resourcesService.getUserResources(userId);
   }

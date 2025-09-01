@@ -4,7 +4,8 @@ exports.ResourceType = exports.SubmissionStatus = exports.TaskStatus = exports.U
 var UserRole;
 (function (UserRole) {
     UserRole["ADMIN"] = "ADMIN";
-    UserRole["USER"] = "USER";
+    UserRole["SISWA"] = "SISWA";
+    UserRole["MENTOR"] = "MENTOR";
 })(UserRole || (exports.UserRole = UserRole = {}));
 var UserStatus;
 (function (UserStatus) {

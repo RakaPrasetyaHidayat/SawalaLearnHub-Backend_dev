@@ -60,7 +60,7 @@ export class SearchUsersDto {
 
   @IsEnum(UserRole)
   @IsOptional()
-  role?: UserRole;
+    role?: UserRole = UserRole.SISWA;
 
   @IsEnum(UserStatus)
   @IsOptional()

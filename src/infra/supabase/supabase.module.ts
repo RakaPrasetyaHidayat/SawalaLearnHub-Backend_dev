@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { SupabaseService } from './supabase.service.js';
-import { ConfigModule } from '@nestjs/config';
+import { ConfigModule } from '../../config/config.module';
+import { SupabaseService } from './supabase.service';
 
 @Module({
   imports: [ConfigModule],

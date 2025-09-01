@@ -4,12 +4,11 @@ import { CreatePostDto, UpdatePostDto, CreatePostCommentDto, FilterPostsDto } fr
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 
-@Controller('api/posts')
-@UseGuards(JwtAuthGuard)
+@Controller('posts')
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
-  @Get()
+  @Get('info')
   async getPostsInfo() {
     return {
       status: 'success',
@@ -48,6 +47,7 @@ export class PostsController {
   }
 
   @Post()
+  @UseGuards(JwtAuthGuard)
   async create(
     @Body() createPostDto: CreatePostDto,
     @GetUser('id') userId: string
@@ -61,16 +61,19 @@ export class PostsController {
   }
 
   @Get('list')
+  @UseGuards(JwtAuthGuard)
   findAll(@Query() filterDto: FilterPostsDto) {
     return this.postsService.findAll(filterDto);
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard)
   findOne(@Param('id') id: string) {
     return this.postsService.findOne(id);
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard)
   update(
     @Param('id') id: string,
     @Body() updatePostDto: UpdatePostDto,
@@ -80,6 +83,7 @@ export class PostsController {
   }
 
   @Delete(':id')
+  @UseGuards(JwtAuthGuard)
   remove(
     @Param('id') id: string,
     @GetUser('id') userId: string
@@ -88,6 +92,7 @@ export class PostsController {
   }
 
   @Post(':id/comments')
+  @UseGuards(JwtAuthGuard)
   addComment(
     @Param('id') postId: string,
     @Body() commentDto: CreatePostCommentDto,
@@ -97,11 +102,13 @@ export class PostsController {
   }
 
   @Get(':id/comments')
+  @UseGuards(JwtAuthGuard)
   getComments(@Param('id') postId: string) {
     return this.postsService.getComments(postId);
   }
 
   @Post(':id/likes')
+  @UseGuards(JwtAuthGuard)
   toggleLike(
     @Param('id') postId: string,
     @GetUser('id') userId: string
@@ -110,6 +117,7 @@ export class PostsController {
   }
 
   @Get('user/:userId')
+  @UseGuards(JwtAuthGuard)
   getUserPosts(@Param('userId') userId: string) {
     return this.postsService.getUserPosts(userId);
   }

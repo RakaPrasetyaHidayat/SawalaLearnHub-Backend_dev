@@ -2,6 +2,11 @@ import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AuthModule } from './modules/auth/auth.module';
+import { UsersModule } from './modules/users/users.module';
+import { TasksModule } from './modules/tasks/tasks.module';
+import { PostsModule } from './modules/posts/posts.module';
+import { ResourcesModule } from './modules/resources/resources.module';
+import { CommentsModule } from './modules/comments/comments.module';
 import { SupabaseModule } from './infra/supabase/supabase.module';
 import { TimeoutMiddleware } from './common/middleware/timeout.middleware';
 import { CorsMiddleware } from './common/middleware/cors.middleware';
@@ -13,6 +18,11 @@ import { CorsMiddleware } from './common/middleware/cors.middleware';
     }),
     SupabaseModule,
     AuthModule,
+    UsersModule,
+    TasksModule,
+    PostsModule,
+    ResourcesModule,
+    CommentsModule,
   ],
   controllers: [AppController],
   providers: [],

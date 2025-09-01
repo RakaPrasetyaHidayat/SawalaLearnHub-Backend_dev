@@ -1,5 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsEnum, IsNumber, IsOptional } from 'class-validator';
-import { UserRole } from '@/common/enums';
+import { IsEmail, IsNotEmpty, IsString, MinLength, IsNumber, IsOptional } from 'class-validator';
 
 export class RegisterDto {
   @IsEmail()
@@ -15,21 +14,21 @@ export class RegisterDto {
   @MinLength(6)
   password: string;
 
-  @IsEnum(UserRole)
-  @IsOptional()
-  role?: UserRole = UserRole.USER;
-
   @IsString()
-  @IsNotEmpty()
-  division_id: string;
+  @IsOptional()
+  division_id?: string;
 
   @IsNumber()
-  @IsNotEmpty()
-  angkatan: number;
+  @IsOptional()
+  angkatan?: number;
+
+  @IsNumber()
+  @IsOptional()
+  channel_year?: number;
 
   @IsString()
-  @IsNotEmpty()
-  school_name: string;
+  @IsOptional()
+  school_name?: string;
 }
 
 export class LoginDto {

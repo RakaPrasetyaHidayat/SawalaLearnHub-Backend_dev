@@ -1,6 +1,6 @@
 import 'module-alias/register';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, RequestMethod } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -100,6 +100,30 @@ export async function bootstrap(): Promise<NestExpressApplication> {
       
       app.enableCors(corsOptions);
 
+      // Enable compression and set keep-alive for slow networks
+      try {
+        const compression = require('compression');
+        app.use(compression());
+      } catch (e) {
+        console.warn('compression not available, skip gzip');
+      }
+      // Helpful headers for unstable connections
+      app.use((req, res, next) => {
+        res.setHeader('Connection', 'keep-alive');
+        res.setHeader('Keep-Alive', 'timeout=10, max=1000');
+        next();
+      });
+
+      // Set global prefix with exclusions
+      console.log('Setting global prefix...');
+      app.setGlobalPrefix('api', {
+        exclude: [
+          { path: '', method: RequestMethod.GET },
+          { path: 'favicon.ico', method: RequestMethod.GET },
+          { path: 'favicon.png', method: RequestMethod.GET },
+        ]
+      });
+
       // Global pipes
       console.log('Setting up global pipes...');
       app.useGlobalPipes(new ValidationPipe({ whitelist: true, transform: true }));
@@ -121,7 +145,14 @@ export async function bootstrap(): Promise<NestExpressApplication> {
         const port = process.env.PORT || 3001;
         console.log(`Using port: ${port}`);
         console.log('Initializing server...');
-        await app.listen(port);
+        const server = await app.listen(port);
+        // Increase Node server timeouts for slow connections (local dev only)
+        try {
+          server.setTimeout?.(15000); // 15s overall timeout
+          server.keepAliveTimeout = 12000; // keep-alive 12s
+          server.headersTimeout = 17000; // headers timeout slightly above keepAlive
+          console.log('HTTP timeouts adjusted for slow networks (local).');
+        } catch {}
         console.log(`Server running on http://localhost:${port}`);
       } else {
         console.log('Running in serverless environment, skipping app.listen');

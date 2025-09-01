@@ -1,0 +1,231 @@
+import { 
+  Injectable, 
+  UnauthorizedException, 
+  BadRequestException, 
+  InternalServerErrorException 
+} from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as bcrypt from 'bcryptjs';
+import { SupabaseService } from '../../infra/supabase/supabase.service';
+import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { UserRole, UserStatus } from '../../common/enums/database.enum';
+
+@Injectable()
+export class AuthService {
+  constructor(
+    private readonly supabaseService: SupabaseService,
+    private readonly jwtService: JwtService,
+  ) {}
+
+  private getClient() {
+    try {
+      const client = this.supabaseService.getClient();
+      if (!client) {
+        throw new Error('Supabase client not initialized');
+      }
+      return client;
+    } catch (error) {
+      console.error('Error getting Supabase client:', error);
+      throw new InternalServerErrorException('Database connection error');
+    }
+  }
+
+  async register(registerDto: RegisterDto) {
+    try {
+      const email = registerDto.email.toLowerCase().trim();
+      console.log('Starting registration process for:', email);
+      
+      // Case-insensitive email check
+      const { data: existingUsers, error: searchError } = await this.getClient()
+        .from('users')
+        .select('id, email, status')
+        .ilike('email', email);
+
+      if (searchError) {
+        console.error('Error checking existing user:', searchError);
+        throw new BadRequestException('Error checking email availability');
+      }
+
+      if (existingUsers && existingUsers.length > 0) {
+        const existingUser = existingUsers[0];
+        console.log('Found existing user:', { id: existingUser.id, status: existingUser.status });
+        
+        throw new BadRequestException({
+          message: 'Email already registered',
+          details: existingUser.status === UserStatus.PENDING ? 
+            'Your account is pending approval' : 
+            'Please try logging in or reset your password'
+        });
+      }
+
+      // Hash password
+      const hashedPassword = await bcrypt.hash(registerDto.password, 10);
+      const currentYear = new Date().getFullYear();
+
+      // Prepare user data
+      const userData = {
+        email: email,
+        full_name: registerDto.full_name,
+        password: hashedPassword,
+        role: UserRole.SISWA,
+        status: UserStatus.PENDING,
+        channel_year: registerDto.channel_year || currentYear,
+        division_id: registerDto.division_id || null,
+        school_name: registerDto.school_name || null,
+      };
+
+      // Insert user
+      const { data: newUser, error: insertError } = await this.getClient()
+        .from('users')
+        .insert(userData)
+        .select('id, email, full_name, role, status, channel_year, school_name')
+        .single();
+
+      if (insertError) {
+        console.error('Error creating user:', insertError);
+        throw new BadRequestException('Failed to create user account');
+      }
+
+      console.log('Registration successful for:', email);
+      return {
+        status: 'success',
+        message: 'User registered successfully, waiting for admin approval',
+        data: newUser
+      };
+    } catch (error) {
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      console.error('Registration error:', error);
+      throw new BadRequestException('Registration failed');
+    }
+  }
+
+  async login(loginDto: LoginDto) {
+    try {
+      const email = loginDto.email.toLowerCase().trim();
+      console.log('Login attempt for:', email);
+
+      // Case-insensitive email search
+      const { data: users, error: searchError } = await this.getClient()
+        .from('users')
+        .select('id, email, password, role, status, full_name')
+        .ilike('email', email);
+
+      if (searchError) {
+        console.error('Database error during login:', searchError);
+        throw new InternalServerErrorException('Error during login process');
+      }
+
+      const user = users && users.length > 0 ? users[0] : null;
+
+      if (!user || !user.password) {
+        console.log('No user found or password not set for:', email);
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      console.log('Found user account:', { email: user.email, status: user.status });
+
+      // Verify password
+      try {
+        const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+        if (!isPasswordValid) {
+          console.log('Invalid password for user:', email);
+          throw new UnauthorizedException('Invalid credentials');
+        }
+      } catch (error) {
+        console.error('Password comparison error:', error);
+        throw new UnauthorizedException('Invalid credentials');
+      }
+
+      // Check account status
+      if (user.status === UserStatus.PENDING) {
+        throw new UnauthorizedException({ 
+          message: 'Account pending approval',
+          status: user.status,
+          details: 'Your account is waiting for admin approval'
+        });
+      }
+
+      if (user.status === UserStatus.REJECTED) {
+        throw new UnauthorizedException({ 
+          message: 'Account rejected',
+          status: user.status,
+          details: 'Your account has been rejected. Please contact administrator'
+        });
+      }
+
+      if (user.status !== UserStatus.APPROVED) {
+        throw new UnauthorizedException({
+          message: 'Invalid account status',
+          status: user.status,
+          details: 'Please contact administrator'
+        });
+      }
+
+      // Generate JWT token
+      const payload = { 
+        sub: user.id, 
+        email: user.email, 
+        role: user.role 
+      };
+      
+      const access_token = await this.jwtService.signAsync(payload);
+      console.log('Login successful for:', email);
+
+      return {
+        status: 'success',
+        message: 'Login successful',
+        data: {
+          access_token,
+          user: {
+            id: user.id,
+            email: user.email,
+            full_name: user.full_name,
+            role: user.role
+          }
+        }
+      };
+    } catch (error) {
+      console.error('Login error:', error);
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Login failed');
+    }
+  }
+
+  async me(userId: string) {
+    try {
+      console.log('Fetching user profile for ID:', userId);
+
+      const { data: user, error } = await this.getClient()
+        .from('users')
+        .select('id, email, full_name, role, status, division_id, channel_year, school_name')
+        .eq('id', userId)
+        .single();
+
+      if (error) {
+        console.error('Error fetching user profile:', error);
+        throw new UnauthorizedException('Error retrieving user profile');
+      }
+
+      if (!user) {
+        console.log('User profile not found for ID:', userId);
+        throw new UnauthorizedException('User not found');
+      }
+
+      return {
+        status: 'success',
+        message: 'User profile retrieved successfully',
+        data: user
+      };
+    } catch (error) {
+      console.error('Profile fetch error:', error);
+      if (error instanceof UnauthorizedException) {
+        throw error;
+      }
+      throw new UnauthorizedException('Error accessing user profile');
+    }
+  }
+}

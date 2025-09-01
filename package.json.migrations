@@ -1,0 +1,5 @@
+{
+  "scripts": {
+    "migrate": "ts-node supabase/migrations/run-migrations.ts"
+  }
+}

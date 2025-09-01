@@ -4,12 +4,11 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { CreateCommentDto } from './dto/comment.dto';
 
-@Controller('api/comments')
-@UseGuards(JwtAuthGuard)
+@Controller('comments')
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
-  @Get()
+  @Get('info')
   async getCommentsInfo() {
     return {
       status: 'success',
@@ -33,6 +32,7 @@ export class CommentsController {
   }
 
   @Post('posts/:postId')
+  @UseGuards(JwtAuthGuard)
   async createPostComment(
     @Param('postId') postId: string,
     @GetUser('id') userId: string,
@@ -47,11 +47,13 @@ export class CommentsController {
   }
 
   @Get('posts/:postId')
+  @UseGuards(JwtAuthGuard)
   getPostComments(@Param('postId') postId: string) {
     return this.commentsService.getPostComments(postId);
   }
 
   @Post('tasks/:taskId')
+  @UseGuards(JwtAuthGuard)
   createTaskComment(
     @Param('taskId') taskId: string,
     @GetUser('id') userId: string,
@@ -61,6 +63,7 @@ export class CommentsController {
   }
 
   @Get('tasks/:taskId')
+  @UseGuards(JwtAuthGuard)
   getTaskComments(@Param('taskId') taskId: string) {
     return this.commentsService.getTaskComments(taskId);
   }

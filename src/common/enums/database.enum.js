@@ -10,7 +10,8 @@ var UserStatus;
 var UserRole;
 (function (UserRole) {
     UserRole["ADMIN"] = "ADMIN";
-    UserRole["USER"] = "USER";
+    UserRole["USER"] = "SISWA";
+    UserRole["MENTOR"] = "MENTOR";
 })(UserRole || (exports.UserRole = UserRole = {}));
 var SubmissionStatus;
 (function (SubmissionStatus) {
