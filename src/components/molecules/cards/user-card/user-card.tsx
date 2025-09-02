@@ -30,16 +30,16 @@ export default function UserCard({
           <Image src={avatarSrc} alt={avatarAlt} fill className="object-cover" />
         </div>
         <div className="min-w-0">
-          <p className="font-semibold text-gray-900 truncate">{username}</p>
-          <p className="text-sm text-gray-700 truncate">{division}</p>
-          <p className="text-sm text-gray-500 truncate">{school}</p>
+          <p className="font-semibold text-gray-900 truncate text-base">{username}</p>
+          <p className="text-sm text-gray-700 truncate text-sm">{division}</p>
+          <p className="text-sm text-gray-500 truncate text-sm">{school}</p>
         </div>
       </div>
 
       <button
         type="button"
         onClick={onViewProfile}
-        className="self-start text-[10px] text-gray-800 border bg-[#E3E3E3] px-3 py-1.5 rounded-sm hover:bg-gray-50"
+        className="self-start text-[10px] text-gray-800 border bg-[#E3E3E3] px-1.5 py-1.5 rounded-sm hover:bg-gray-50"
       >
         View Profile
       </button>

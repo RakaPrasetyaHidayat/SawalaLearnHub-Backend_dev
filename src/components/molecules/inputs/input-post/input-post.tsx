@@ -57,17 +57,17 @@ export default function InputPost({
       <label className="block text-gray-900 font-regular text-sm mb-2">
         What&apos;s on your mind?
       </label>
-      
+
       {/* Input field with preview */}
       <div className="relative w-full border h-[37px] border-gray-200 rounded-lg bg-white flex items-center">
         <div className="flex items-center px-4 py-3 w-full">
           <div className="flex-1 flex items-center gap-3">
             {previewUrl ? (
               <div className="flex items-center gap-3 w-full">
-                <div className="relative w-12 h-12 rounded-lg overflow-hidden flex-shrink-0">
-                  <Image 
-                    src={previewUrl} 
-                    alt="preview" 
+                <div className="relative w-[27px] h-[27px] rounded-sm overflow-hidden flex-shrink-0">
+                  <Image
+                    src={previewUrl}
+                    alt="preview"
                     fill
                     className="object-cover"
                   />
@@ -99,20 +99,31 @@ export default function InputPost({
               />
             )}
           </div>
-          
+
           {/* Plus icon button */}
           <button
             type="button"
             onClick={handlePickImage}
             disabled={disabled}
             aria-label="Add image"
-            className="ml-3 h-8 w-8 absolute right-2 inline-flex items-center justify-center border-gray-200 text-2xl hover:bg-gray-50 disabled:opacity-50 text-gray-500"
+            className="ml-3 h-8 w-8 absolute right-1.5 top-1.5 inline-flex items-center justify-center border-gray-200 text-2xl hover:bg-gray-50 disabled:opacity-50 text-gray-500"
             title="Add image"
           >
             <span className="text-2xl leading-none mb-auto">+</span>
           </button>
         </div>
+        
+
       </div>
+      {/* Button submit postingan baru */}
+      <button
+        type="submit"
+        disabled={disabled || (!text.trim() && !previewUrl)}
+        className="mt-2 w-full py-2 rounded-lg bg-blue-500 hover:bg-blue-600 text-white font-semibold disabled:opacity-50"
+      >
+        Post
+      </button>
+
 
       {/* Hidden File Input */}
       <input

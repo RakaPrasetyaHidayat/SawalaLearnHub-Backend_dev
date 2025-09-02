@@ -26,7 +26,7 @@ const DivisionCard: React.FC<DivisionCardProps> = ({
   return (
     <div 
       className={`
-        relative bg-white border border-gray-200 rounded-lg p-4 max-[349px]:p-3 cursor-pointer
+        relative bg-white rounded-lg p-4 max-[349px]:p-3 cursor-pointer
         hover:shadow-md transition-all duration-200 hover:border-gray-300 min-h-[61px] max-[349px]:min-h-[56px]
         flex items-center justify-center mb-4 max-[349px]:mb-3
         ${onClick ? 'hover:scale-[1.02]' : ''}

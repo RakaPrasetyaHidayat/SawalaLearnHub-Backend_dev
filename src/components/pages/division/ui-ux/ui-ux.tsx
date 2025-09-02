@@ -44,9 +44,9 @@ export default function UiUxSection({
             {/* Dummy list; later replace with data from API/DB */}
             <UserCard username="bimo_fikry" division="UI UX designer" school="SMKN 1 Sumedang" />
             <UserCard username="siti_ayu" division="Frontend Dev" school="SMKN 2 Bandung" />
-            <UserCard username="andre_t" division="Backend Developer" school="SMKN 1 Cimahi" />
-            <UserCard username="andre_t" division="Backend Developer" school="SMKN 1 Cimahi" />
-            <UserCard username="andre_t" division="Backend Developer" school="SMKN 1 Cimahi" />
+            <UserCard username="andre_t" division="Backend Dev" school="SMKN 1 Cimahi" />
+            <UserCard username="andre_t" division="Backend Dev" school="SMKN 1 Cimahi" />
+            <UserCard username="andre_t" division="Backend Dev" school="SMKN 1 Cimahi" />
           </div>
         )}
 

@@ -6,27 +6,49 @@ import { Label } from "@/components/atoms/ui/label"
 import { Button } from "@/components/atoms/ui/button"
 import Image from "next/image"
 import { useState } from "react"
+import { register as registerUser } from "@/services/api"
+import { useRouter } from "next/navigation"
 import { Alert, AlertDescription, AlertTitle } from "../../molecules/alert/alert"
 import { XCircle } from "lucide-react"
 import { Checkbox } from "@/components/atoms/ui/checkbox"
 import BrandHeader from "@/components/molecules/brand-header"
 
 export function RegisterCard() {
+  const router = useRouter()
   const [email, setEmail] = useState("")
+  const [username, setUsername] = useState("")
   const [password, setPassword] = useState("")
   const [confirmPassword, setConfirmPassword] = useState("")
-  const [error] = useState("")
+  const [error, setError] = useState("")
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError("")
 
-  // Cek apakah email & password valid (contoh sederhana)
-  // if (email !== "admin@example.com" || password !== "123456") {
-  //   setError("Email atau password salah!")
-  // } else {
-  //   setError("")
-  //   alert("Login berhasil!") // nanti bisa diganti dengan redirect
-  // }
+    if (!email || !username || !password) {
+      setError("Semua field wajib diisi")
+      return
+    }
+    if (password !== confirmPassword) {
+      setError("Konfirmasi password tidak sesuai")
+      return
+    }
+
+    try {
+      setLoading(true)
+      const data = await registerUser({ email, password, username })
+      if (data?.success) {
+        router.push("/login")
+      } else {
+        setError(data?.message || "Register gagal")
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? (err.message || "Register gagal") : "Register gagal"
+      setError(message)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -63,6 +85,8 @@ export function RegisterCard() {
                 id="name"
                 placeholder="Username"
                 type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
               />
             </div>
             <div className="flex flex-col space-y-1.5">
@@ -110,8 +134,9 @@ export function RegisterCard() {
             <Button
               type="submit"
               className="w-full rounded-lg bg-blue-500 hover:bg-blue-600 text-white"
+              disabled={loading}
             >
-              Daftar
+              {loading ? "Memproses..." : "Daftar"}
             </Button>
 
             <div className="flex items-center w-full">

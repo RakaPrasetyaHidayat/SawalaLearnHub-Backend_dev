@@ -31,7 +31,7 @@ export function useProfileData() {
   const [error, setError] = useState<string | null>(null)
 
   // TODO: Ganti dengan implementasi fetch data dari database saat endpoint siap
-  const fetchProfileData = async (_userId?: string) => {
+  const fetchProfileData = async () => {
     try {
       setIsLoading(true)
       setError(null)

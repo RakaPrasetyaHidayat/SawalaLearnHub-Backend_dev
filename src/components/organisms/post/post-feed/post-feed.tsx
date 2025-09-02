@@ -1,6 +1,7 @@
 "use client"
 import React, { useState } from 'react'
 import Post from '../post/post'
+import InputPost from '@/components/molecules/inputs/input-post/input-post'
 
 interface PostData {
   id: string
@@ -101,6 +102,9 @@ export default function PostFeed() {
 
   return (
     <div className="space-y-4">
+  {/* Input postingan baru */}
+  {/* Hanya satu input field untuk postingan baru, hapus duplikat jika ada */}
+  <InputPost onSubmit={handleCreatePost} />
 
       {/* Posts Feed */}
       <div className="space-y-4 mt-3">
@@ -120,30 +124,6 @@ export default function PostFeed() {
 
         ))}
         {/* Form Create Post */}
-        <div className="p-4 border rounded-lg">
-          <form
-            onSubmit={(e) => {
-              e.preventDefault()
-              const form = e.currentTarget
-              const text = (form.elements.namedItem("text") as HTMLInputElement).value
-              handleCreatePost({ text })
-              form.reset()
-            }}
-          >
-            <input
-              type="text"
-              name="text"
-              placeholder="Apa yang kamu pikirkan?"
-              className="w-full border rounded px-3 py-2 mb-2"
-            />
-            <button
-              type="submit"
-              className="px-4 py-2 bg-blue-500 text-white rounded"
-            >
-              Post
-            </button>
-          </form>
-        </div>
       </div>
     </div>
   )

@@ -5,64 +5,20 @@ import { useParams, useRouter } from 'next/navigation'
 import { ArrowLeft, ThumbsUp, FileText, ExternalLink, Download } from 'lucide-react'
 
 // Types
-type ResourceBase = {
+type Resource = {
   id: string
   title: string
   author: string
-  role: string
+  role?: string
   description: string
   date: string
-  likes: string
+  likes: string | number
+  type?: 'link' | 'file' | 'text'
+  link?: string | null
+  fileName?: string | null
+  fileUrl?: string | null
 }
 
-type LinkResource = ResourceBase & {
-  type: 'link'
-  link: string
-  fileName: null
-  fileUrl: null
-}
-
-type FileResource = ResourceBase & {
-  type: 'file'
-  link: null
-  fileName: string
-  fileUrl: string
-}
-
-type Resource = LinkResource | FileResource
-
-// Mock data for resources - in real app this would come from API
-const mockResources: Resource[] = [
-  {
-    id: '1',
-    title: 'Wireframe Aplikasi Kasir Menggunakan Figma',
-    author: 'Bimo',
-    role: 'UI/UX Intern',
-    description:
-      'Halo teman-teman! disini aku Bimo sebagaimana yang kalian ketahui, aku sedang magang di divisi UI/UX di perusahaan ini. Aku membuat wireframe kasir menggunakan Figma, kali ini akan aku paparkan seperti apa hasil dari wireframe tersebut :',
-    date: '12 Oct 2025',
-    likes: '200k',
-    type: 'link',
-    link:
-      'https://www.figma.com/design/VsXAK2SRo2JTgWm9FdOEHH/Ideation-Project-Intern-%E2%80%93-Sawala-LearnHub?node-id=720-2848&t=pK9yeMpbVygORxzJ-0',
-    fileName: null,
-    fileUrl: null,
-  },
-  {
-    id: '2',
-    title: 'Tutorial Responsive Web Design',
-    author: 'Bimo',
-    role: 'UI/UX Intern',
-    description:
-      'Tutorial lengkap tentang responsive web design dengan contoh praktis dan best practices untuk developer.',
-    date: '12 Oct 2025',
-    likes: '150k',
-    type: 'file',
-    link: null,
-    fileName: 'Tutorial-Responsive-Web-Design.pdf',
-    fileUrl: '/assets/documents/tutorial-responsive-web-design.pdf',
-  },
-]
 
 export default function ResourceDetailPage() {
   const params = useParams<{ id: string }>()
@@ -71,13 +27,23 @@ export default function ResourceDetailPage() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Simulate API call
-    const fetchResource = () => {
-      const foundResource = mockResources.find((r) => r.id === params.id)
-      if (foundResource) {
-        setResource(foundResource)
+    const fetchResource = async () => {
+      try {
+        const res = await fetch('/api/resources', { cache: 'no-store' })
+        const contentType = res.headers.get('content-type') || ''
+        const data = contentType.includes('application/json') ? await res.json().catch(() => []) : []
+        const arr = Array.isArray(data) ? (data as unknown[]) : []
+        const found = arr.find((r): r is Resource => {
+          if (typeof r !== 'object' || r === null) return false
+          const obj = r as { id?: unknown }
+          return typeof obj.id === 'string' && obj.id === params.id
+        }) || null
+        setResource(found)
+      } catch {
+        setResource(null)
+      } finally {
+        setLoading(false)
       }
-      setLoading(false)
     }
 
     fetchResource()
@@ -175,7 +141,7 @@ export default function ResourceDetailPage() {
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-2 text-blue-600 hover:text-blue-700 font-medium break-all"
-              onClick={() => handleLinkClick(resource.link)}
+              onClick={() => handleLinkClick(resource.link as string)}
             >
               <ExternalLink className="h-4 w-4" />
               {resource.link}
@@ -183,7 +149,7 @@ export default function ResourceDetailPage() {
           </div>
         )}
 
-        {resource.type === 'file' && resource.fileName && (
+        {resource.type === 'file' && resource.fileName && resource.fileUrl && (
           <div className="mb-6">
             <div className="border border-gray-200 rounded-lg p-4 bg-gray-50">
               <div className="flex items-center gap-3">
@@ -195,7 +161,7 @@ export default function ResourceDetailPage() {
                   <p className="text-sm text-gray-500">Click to download</p>
                 </div>
                 <button
-                  onClick={() => handleFileDownload(resource.fileName, resource.fileUrl)}
+                  onClick={() => handleFileDownload(resource.fileName as string, resource.fileUrl as string)}
                   className="p-2 text-blue-600 hover:bg-blue-50 rounded-full transition-colors"
                 >
                   <Download className="h-5 w-5" />

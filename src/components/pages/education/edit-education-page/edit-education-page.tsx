@@ -5,6 +5,7 @@ import BackButton from "@/components/atoms/ui/back-button";
 import { Input } from "@/components/atoms/ui/input";
 import { Button } from "@/components/atoms/ui/button";
 import { useEducation } from "../education-context";
+import Image from "next/image";
 
 export function EditEducationPage() {
   const router = useRouter();
@@ -26,7 +27,7 @@ export function EditEducationPage() {
       {/* Header */}
       <div className="flex items-center p-4">
         <BackButton>
-          <img src="/assets/icons/arrow-left.png" alt="Back" className="h-4 ml-1 cursor-pointer hover:bg-gray-100" />
+          <Image src="/assets/icons/arrow-left.png" alt="Back" width={16} height={16} className="ml-1 cursor-pointer hover:bg-gray-100" />
         </BackButton>   
         <h1 className="text-xl font-bold text-gray-900 ml-3">
           Edit Education

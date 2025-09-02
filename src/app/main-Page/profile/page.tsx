@@ -10,9 +10,7 @@ export default function ProfilePage() {
   const { profileData, isLoading: profileLoading, error } = useProfileData()
 
   const handleEditProfile = () => {
-    // TODO: Implementasi edit profile
-    console.log("Edit profile clicked")
-    // router.push("/profile/edit")
+    router.push("/main-Page/profile/edit-profile")
   }
 
   const handleLogout = async () => {

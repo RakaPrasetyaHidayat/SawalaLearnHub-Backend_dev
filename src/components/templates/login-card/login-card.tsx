@@ -6,14 +6,15 @@ import { Label } from "@/components/atoms/ui/label"
 import { Button } from "@/components/atoms/ui/button"
 import Image from "next/image"
 import { useState } from "react"
+// import axios from "axios"
+import { login } from "@/services/api"
+// import { getUsers } from "@/src/services/api"
 import { useRouter } from "next/navigation"
 import { Alert, AlertDescription, AlertTitle } from "../../molecules/alert/alert"
 import { XCircle } from "lucide-react"
 import BrandHeader from "@/components/molecules/brand-header"
 
 export function LoginCard() {
-
-  const auth = "https://learnhub-be-dev.vercel.app/api/auth/login";
 
   const router = useRouter()
   const [email, setEmail] = useState("")
@@ -27,27 +28,24 @@ export function LoginCard() {
   // ]
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
     try {
-      const params = new URLSearchParams({ email, password })
-      const response = await fetch(`https://learnhubbackenddev.vercel.app/api/auth?${params.toString()}`, {
-        method: 'GET',
-      })
-      const data = await response.json()
-      if (response.ok && data.success) {
-        alert('login success')
-        router.push('/main-Page')
+      const data = await login(email, password);
+      if (data?.success) {
+        router.push("/main-Page");
       } else {
-        setError(data.message || "Email atau password salah!")
+        setError(data?.message || "Email atau password salah!");
       }
-    } catch (err) {
-      setError("Terjadi kesalahan saat login.")
+    } catch (err: unknown) {
+      console.error("Login error:", err);
+      const message = err instanceof Error ? (err.message || "Terjadi kesalahan saat login.") : "Terjadi kesalahan saat login."
+      setError(message);
     }
   }
 
   return (
-    <Card className="w-[350px] h-full relative">
+    <Card className="w-[360px] h-full relative">
       <CardHeader className="mt-[30px] mb-[20px]">
         <BrandHeader containerClassName="mb-2" />
         <CardTitle className="text-2xl">Sign In</CardTitle>

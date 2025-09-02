@@ -17,9 +17,8 @@ type ResourcesHeaderProps = {
 export default function ResourcesHeader({
   categories = [
     { label: "All", value: "all" },
-    { label: "UI/UX", value: "uiux" },
-    { label: "Frontend", value: "frontend" },
-    { label: "Backend", value: "backend" },
+    { label: "File", value: "file" },
+    { label: "Link", value: "Link" },
   ],
   sorts = [
     { label: "Terbaru", value: "newest" },

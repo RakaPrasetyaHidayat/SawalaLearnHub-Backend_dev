@@ -1,7 +1,7 @@
 "use client";
 
-import { SocialAccountItem } from "./social-account-item/social-account-item";
-import { useSocialAccount } from "./context/social-account-context";
+import { SocialAccountItem } from "../social-account-item/social-account-item";
+import { useSocialAccount } from "../context/social-account-context";
 
 export function SocialAccountList() {
   const { accounts } = useSocialAccount();

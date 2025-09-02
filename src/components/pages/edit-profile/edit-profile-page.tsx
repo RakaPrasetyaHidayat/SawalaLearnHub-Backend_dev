@@ -11,7 +11,7 @@ export function EditProfilePage() {
       {/* Header */}
       <div className="flex items-center p-4">
         <BackButton>
-          <Image src="/assets/icons/arrow-left.png" alt="Back" className="h-4 ml-1 cursor-pointer hover:bg-gray-100" />
+          <Image src="/assets/icons/arrow-left.png" alt="Back" className="h-4 ml-1 cursor-pointer hover:bg-gray-100" width={12} height={24}/>
         </BackButton>   
         <h1 className="text-xl font-bold text-gray-900 ml-3">
           Edit Profile

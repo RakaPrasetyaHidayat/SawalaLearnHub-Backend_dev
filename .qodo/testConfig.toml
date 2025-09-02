@@ -1,0 +1,3 @@
+[typescriptreact]
+testingFramework = "React Testing Library"
+mockingFramework = "Jest (built-in)"
