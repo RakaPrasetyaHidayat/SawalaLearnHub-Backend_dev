@@ -1,12 +1,17 @@
 // supabase.service.ts
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import {
+  Injectable,
+  OnModuleInit,
+  UnauthorizedException,
+  InternalServerErrorException,
+} from '@nestjs/common';
 import { ConfigService } from '../../config/config.service';
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 @Injectable()
 export class SupabaseService implements OnModuleInit {
-  private client: SupabaseClient;       // pakai anon key
-  private adminClient: SupabaseClient;  // pakai service role key
+  private client: SupabaseClient;       // anon
+  private adminClient: SupabaseClient;  // service role
 
   constructor(private configService: ConfigService) {}
 
@@ -17,20 +22,12 @@ export class SupabaseService implements OnModuleInit {
     if (!anonKey) throw new Error('❌ Missing Supabase Anon Key');
     if (!serviceRoleKey) throw new Error('❌ Missing Supabase Service Role Key');
 
-    // ✅ Client user (anon)
     this.client = createClient(url, anonKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
+      auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    // ✅ Client admin (service role)
     this.adminClient = createClient(url, serviceRoleKey, {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      },
+      auth: { persistSession: false, autoRefreshToken: false },
     });
 
     console.log('✅ Supabase initialized');
@@ -39,21 +36,23 @@ export class SupabaseService implements OnModuleInit {
   public getClient(useAdmin = false): SupabaseClient {
     const client = useAdmin ? this.adminClient : this.client;
     if (!client) {
-      throw new Error(`Supabase ${useAdmin ? 'admin ' : ''}client not initialized`);
+      throw new Error(
+        `Supabase ${useAdmin ? 'admin ' : ''}client not initialized`,
+      );
     }
     return client;
   }
 
   // =============================
-  // AUTHENTICATION
+  // AUTH
   // =============================
 
   async register(email: string, password: string) {
-    const { data, error } = await this.client.auth.signUp({
-      email,
-      password,
-    });
-    if (error) throw error;
+    const { data, error } = await this.client.auth.signUp({ email, password });
+    if (error) {
+      console.error('❌ Register error:', error.message);
+      throw new InternalServerErrorException(error.message);
+    }
     return data;
   }
 
@@ -62,24 +61,30 @@ export class SupabaseService implements OnModuleInit {
       email,
       password,
     });
-    if (error) throw error;
+    if (error) {
+      console.error('❌ Login error:', error.message);
+      throw new UnauthorizedException('Invalid email or password');
+    }
     return data;
   }
 
   async logout() {
     const { error } = await this.client.auth.signOut();
-    if (error) throw error;
+    if (error) throw new InternalServerErrorException(error.message);
     return { message: 'Logged out successfully' };
   }
 
   async getUser(accessToken: string) {
     const { data, error } = await this.client.auth.getUser(accessToken);
-    if (error) throw error;
+    if (error) {
+      console.error('❌ GetUser error:', error.message);
+      throw new UnauthorizedException('Invalid or expired token');
+    }
     return data.user;
   }
 
   // =============================
-  // CRUD METHODS
+  // CRUD
   // =============================
 
   async create<T>(table: string, data: Partial<T>, useAdmin = false): Promise<T> {
@@ -89,7 +94,10 @@ export class SupabaseService implements OnModuleInit {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error(`❌ Create error on ${table}:`, error.message);
+      throw new InternalServerErrorException(error.message);
+    }
     return result as T;
   }
 
@@ -100,7 +108,10 @@ export class SupabaseService implements OnModuleInit {
       .eq('id', id)
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error(`❌ FindOne error on ${table}:`, error.message);
+      throw new InternalServerErrorException(error.message);
+    }
     return data as T;
   }
 
@@ -110,7 +121,10 @@ export class SupabaseService implements OnModuleInit {
       .select('*')
       .limit(limit);
 
-    if (error) throw error;
+    if (error) {
+      console.error(`❌ FindMany error on ${table}:`, error.message);
+      throw new InternalServerErrorException(error.message);
+    }
     return data as T[];
   }
 
@@ -122,7 +136,10 @@ export class SupabaseService implements OnModuleInit {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) {
+      console.error(`❌ Update error on ${table}:`, error.message);
+      throw new InternalServerErrorException(error.message);
+    }
     return result as T;
   }
 
@@ -132,6 +149,9 @@ export class SupabaseService implements OnModuleInit {
       .delete()
       .eq('id', id);
 
-    if (error) throw error;
+    if (error) {
+      console.error(`❌ Delete error on ${table}:`, error.message);
+      throw new InternalServerErrorException(error.message);
+    }
   }
 }

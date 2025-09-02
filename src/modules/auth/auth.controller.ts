@@ -55,4 +55,10 @@ export class AuthController {
   async me(@GetUser('sub') userId: string) {
     return await this.authService.me(userId);
   }
+
+  // ✅ Healthcheck DB untuk cek koneksi/env
+  @Get('db-check')
+  async dbCheck() {
+    return await this.authService.dbCheck();
+  }
 }

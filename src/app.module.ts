@@ -1,5 +1,4 @@
 import { Module, MiddlewareConsumer, NestModule } from '@nestjs/common';
-import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
@@ -10,12 +9,11 @@ import { CommentsModule } from './modules/comments/comments.module';
 import { SupabaseModule } from './infra/supabase/supabase.module';
 import { TimeoutMiddleware } from './common/middleware/timeout.middleware';
 import { CorsMiddleware } from './common/middleware/cors.middleware';
+import { ConfigModule } from './config/config.module'; // use custom config module with validation
 
 @Module({
   imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-    }),
+    ConfigModule, // initializes @nestjs/config globally with validation
     SupabaseModule,
     AuthModule,
     UsersModule,

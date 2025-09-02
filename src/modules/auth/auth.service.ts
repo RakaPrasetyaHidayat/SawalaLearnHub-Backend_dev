@@ -45,11 +45,13 @@ export class AuthService {
   ) {}
 
   /**
-   * Helper untuk pastikan query selalu pakai service_role (bukan anon).
-   * Supaya RLS tidak menghalangi proses auth (register, login, me).
+   * Client Supabase pakai service_role
    */
   private get adminClient() {
-    return this.supabaseService.getClient(true); // ✅ true = pakai SERVICE_ROLE
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY in env');
+    }
+    return this.supabaseService.getClient(true);
   }
 
   private async handleDatabaseOperation<T>(operation: () => Promise<T>): Promise<T> {
@@ -57,12 +59,17 @@ export class AuthService {
       return await operation();
     } catch (error) {
       console.error('Database operation error:', error);
-      
+
       if (error.message?.includes('API key')) {
-        throw new InternalServerErrorException('Database configuration error');
+        throw new InternalServerErrorException('Database configuration error: Invalid API key');
       }
-      
-      throw error instanceof Error ? error : new InternalServerErrorException('Database operation failed');
+      if (error.message?.includes('JWT')) {
+        throw new UnauthorizedException('Invalid or expired token');
+      }
+
+      throw error instanceof Error
+        ? new InternalServerErrorException(error.message)
+        : new InternalServerErrorException('Database operation failed');
     }
   }
 
@@ -70,7 +77,6 @@ export class AuthService {
     return this.handleDatabaseOperation(async () => {
       const email = registerDto.email.toLowerCase().trim();
 
-      // ✅ Cari user existing (pakai service_role)
       const { data: existingUser, error: searchError } = await this.adminClient
         .from('users')
         .select('id, email, status')
@@ -82,17 +88,16 @@ export class AuthService {
       if (existingUser) {
         throw new BadRequestException({
           message: 'User already exists',
-          details: existingUser.status === UserStatus.PENDING 
-            ? 'Your registration is pending approval' 
-            : 'An account with this email already exists'
+          details:
+            existingUser.status === UserStatus.PENDING
+              ? 'Your registration is pending approval'
+              : 'An account with this email already exists',
         });
       }
 
-      // ✅ Hash password
       const hashedPassword = await bcrypt.hash(registerDto.password, 10);
       const currentYear = new Date().getFullYear();
 
-      // ✅ Buat user baru
       const userData = {
         email,
         password: hashedPassword,
@@ -125,44 +130,42 @@ export class AuthService {
     return this.handleDatabaseOperation(async () => {
       const email = loginDto.email.toLowerCase().trim();
 
-      // ✅ Ambil user by email (pakai service_role agar bisa baca password)
       const { data: user, error: searchError } = await this.adminClient
         .from('users')
         .select('*')
         .eq('email', email)
-        .maybeSingle();
+        .single();
 
       if (searchError) throw new InternalServerErrorException(searchError.message);
       if (!user) throw new UnauthorizedException('Invalid credentials');
 
-      // ✅ Status check
+      console.log('🔍 User found from DB:', user);
+
       if (user.status === UserStatus.PENDING) {
-        throw new UnauthorizedException({ 
-          message: 'Account is pending approval', 
+        throw new UnauthorizedException({
+          message: 'Account is pending approval',
           status: user.status,
-          details: 'Please wait for admin approval'
+          details: 'Please wait for admin approval',
         });
       }
       if (user.status === UserStatus.REJECTED) {
-        throw new UnauthorizedException({ 
-          message: 'Account has been rejected', 
+        throw new UnauthorizedException({
+          message: 'Account has been rejected',
           status: user.status,
-          details: 'Please contact administrator'
+          details: 'Please contact administrator',
         });
       }
       if (user.status !== UserStatus.APPROVED) {
         throw new UnauthorizedException({
           message: `Invalid account status: ${user.status}`,
           status: user.status,
-          details: 'Contact administrator for assistance'
+          details: 'Contact administrator for assistance',
         });
       }
 
-      // ✅ Cek password
       const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
       if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
-      // ✅ Generate JWT
       const payload = { sub: user.id, email: user.email, role: user.role };
       const access_token = await this.jwtService.signAsync(payload);
 
@@ -184,10 +187,11 @@ export class AuthService {
 
   async me(userId: string): Promise<AuthResponse<AuthUser>> {
     return this.handleDatabaseOperation(async () => {
-      // ✅ Ambil profil by id (pakai service_role agar leluasa)
       const { data: user, error } = await this.adminClient
         .from('users')
-        .select('id, email, full_name, role, status, channel_year, school_name, division_id')
+        .select(
+          'id, email, full_name, role, status, channel_year, school_name, division_id',
+        )
         .eq('id', userId)
         .maybeSingle();
 
@@ -201,5 +205,23 @@ export class AuthService {
       };
     });
   }
-}
 
+  // Healthcheck: simple query to validate DB connectivity/env
+  async dbCheck() {
+    return this.handleDatabaseOperation(async () => {
+      const { error, count } = await this.adminClient
+        .from('users')
+        .select('id', { count: 'exact', head: true });
+
+      if (error) {
+        throw new InternalServerErrorException(error.message);
+      }
+
+      return {
+        status: 'success',
+        message: 'Database reachable',
+        data: { table: 'users', countKnown: typeof count === 'number' },
+      };
+    });
+  }
+}
