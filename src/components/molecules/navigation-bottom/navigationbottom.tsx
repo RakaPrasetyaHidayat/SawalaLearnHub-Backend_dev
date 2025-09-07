@@ -33,7 +33,7 @@ export default function NavigationBottom() {
     const pathname = usePathname()
 
     return (
-        <nav className="fixed bottom-0 inset-x-0 z-[9999] w-[345px] max-[349px]:w-full m-auto bg-white/95 border-t border-gray-200 shadow-sm">
+        <nav className="fixed bottom-0 inset-x-0 z-[10] w-[345px] max-[349px]:w-full m-auto bg-white/95 border-t border-gray-200 shadow-sm">
             <div className="mx-auto w-[350px] max-w-[350px] max-[349px]:w-full max-[349px]:px-2">
             <ul className="flex items-center justify-around py-2 max-[360px]:py-1">
                 {items.map((item) => {

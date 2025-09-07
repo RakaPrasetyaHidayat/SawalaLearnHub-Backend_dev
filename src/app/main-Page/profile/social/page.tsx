@@ -3,3 +3,4 @@ import { SocialAccountPage } from "@/components/pages/social-account/social-acco
 export default function SocialAccount() {
   return <SocialAccountPage />;
 }
+

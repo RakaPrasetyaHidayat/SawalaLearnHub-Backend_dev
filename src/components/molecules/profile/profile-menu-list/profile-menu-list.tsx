@@ -7,6 +7,7 @@ import {
 } from "lucide-react"
 import ProfileMenuItemLink from "../profile-menu-item-link/profile-menu-item-link"
 import ProfileMenuItemButton from "../profile-menu-item-button/profile-menu-item-button"
+import LogoutConfirmationDialog from "../logout-confirmation-dialog/logout-confirmation-dialog"
 
 interface ProfileMenuListProps {
   onLogout?: () => void
@@ -20,7 +21,13 @@ export default function ProfileMenuList({ onLogout }: ProfileMenuListProps) {
         <ProfileMenuItemLink icon={<ClipboardCheck className="w-6 h-6" />} label="Tasks" href="/main-Page/profile/tasks" />
         <ProfileMenuItemLink icon={<GraduationCap className="w-6 h-6" />} label="Education" href="/main-Page/profile/education" />
         <ProfileMenuItemLink icon={<Network className="w-6 h-6" />} label="Social Account" href="/main-Page/profile/social" />
-        <ProfileMenuItemButton icon={<LogOut className="w-6 h-6" />} label="Logout" onClick={onLogout || (()=>{})} />
+        <LogoutConfirmationDialog onConfirm={onLogout || (() => {})}>
+          <ProfileMenuItemButton 
+            icon={<LogOut className="w-6 h-6" />} 
+            label="Logout" 
+            onClick={() => {}} 
+          />
+        </LogoutConfirmationDialog>
       </div>
     </div>
   )

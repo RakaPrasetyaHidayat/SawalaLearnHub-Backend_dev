@@ -3,3 +3,4 @@ import { AddResourcesPage } from "@/components/pages/add-resources/add-resource-
 export default function AddResources() {
   return <AddResourcesPage />;
 }
+

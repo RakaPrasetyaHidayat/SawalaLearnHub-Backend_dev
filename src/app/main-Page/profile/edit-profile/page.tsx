@@ -3,3 +3,4 @@ import { EditProfilePage } from "@/components/pages/edit-profile/edit-profile-pa
 export default function EditProfile() {
   return <EditProfilePage />;
 }
+

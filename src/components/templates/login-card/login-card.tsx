@@ -6,41 +6,39 @@ import { Label } from "@/components/atoms/ui/label"
 import { Button } from "@/components/atoms/ui/button"
 import Image from "next/image"
 import { useState } from "react"
-// import axios from "axios"
-import { login } from "@/services/api"
-// import { getUsers } from "@/src/services/api"
 import { useRouter } from "next/navigation"
 import { Alert, AlertDescription, AlertTitle } from "../../molecules/alert/alert"
 import { XCircle } from "lucide-react"
 import BrandHeader from "@/components/molecules/brand-header"
 
-export function LoginCard() {
+// Import service
+import { loginUser } from "@/services/authService";
 
+export function LoginCard() {
   const router = useRouter()
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
   const [error, setError] = useState("")
-
-  // Simulasi database user
-  // const registeredUsers = [
-  //   { email: "admin@example.com", password: "123456" },
-  //   { email: "user@example.com", password: "password" }
-  // ]
+  const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError("");
+    e.preventDefault()
+    setError("")
+    setLoading(true)
+
     try {
-      const data = await login(email, password);
-      if (data?.success) {
-        router.push("/main-Page");
-      } else {
-        setError(data?.message || "Email atau password salah!");
-      }
-    } catch (err: unknown) {
-      console.error("Login error:", err);
-      const message = err instanceof Error ? (err.message || "Terjadi kesalahan saat login.") : "Terjadi kesalahan saat login."
-      setError(message);
+      const data = await loginUser(email, password)
+
+      // Simpan token ke localStorage (atau bisa cookies kalau butuh SSR)
+      localStorage.setItem("token", data.token)
+      localStorage.setItem("user", JSON.stringify(data.user))
+
+      // Redirect ke halaman utama
+      router.push("/main-Page")
+    } catch (err: any) {
+      setError(err.message || "Login gagal, silakan coba lagi.")
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -65,6 +63,7 @@ export function LoginCard() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                required
               />
             </div>
             <div className="flex flex-col space-y-1.5">
@@ -75,6 +74,7 @@ export function LoginCard() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
+                required
               />
             </div>
 
@@ -99,9 +99,10 @@ export function LoginCard() {
           <CardFooter className="flex flex-col gap-4 items-center mt-4 p-0">
             <Button
               type="submit"
+              disabled={loading}
               className="w-full rounded-lg bg-blue-500 hover:bg-blue-600 text-white"
             >
-              Masuk
+              {loading ? "Loading..." : "Masuk"}
             </Button>
 
             <div className="flex items-center w-full">
@@ -111,10 +112,10 @@ export function LoginCard() {
             </div>
 
             <div className="flex gap-4">
-              <button className="p-2 rounded-full border hover:bg-gray-100">
+              <button type="button" className="p-2 rounded-full border hover:bg-gray-100">
                 <Image src="/assets/icons/google.png" alt="Google" width={32} height={32} />
               </button>
-              <button className="p-2 rounded-full border hover:bg-gray-100">
+              <button type="button" className="p-2 rounded-full border hover:bg-gray-100">
                 <Image src="/assets/icons/github.png" alt="GitHub" width={32} height={32} />
               </button>
             </div>

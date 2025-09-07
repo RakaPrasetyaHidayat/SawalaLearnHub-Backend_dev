@@ -7,6 +7,9 @@ import { InternOfYears } from '@/components/organisms/intern-of-(years)'
 export function AboutClient() {
   const searchParams = useSearchParams()
   const year = searchParams.get('year') || '2025'
+  
+  // Format year for API calls (e.g., "2025" -> "intern-of-sawala-2025")
+  const formattedYear = `intern-of-sawala-${year}`
 
   return (
     <div className='justify-center items-center h-full'>
@@ -23,7 +26,7 @@ export function AboutClient() {
         </div>
       </div>
       <div className='space-y-3 p-4'>
-        <InternOfYears />
+        <InternOfYears year={formattedYear} />
       </div>
     </div>
   )
