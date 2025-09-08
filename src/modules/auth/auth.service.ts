@@ -2,13 +2,15 @@ import {
   Injectable, 
   UnauthorizedException, 
   BadRequestException, 
-  InternalServerErrorException 
+  InternalServerErrorException,
+  NotFoundException,
+  HttpException
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
 import { SupabaseService } from '../../infra/supabase/supabase.service';
 import { RegisterDto, LoginDto } from './dto/auth.dto';
-import { UserRole, UserStatus } from '../../common/enums/database.enum';
+import { UserRole, UserStatus, Division } from '../../common/enums/database.enum';
 
 export interface AuthResponse<T> {
   status: string;
@@ -24,7 +26,7 @@ export interface AuthUser {
   status: UserStatus;
   channel_year?: number;
   school_name?: string;
-  division_id?: string;
+  division?: Division;
 }
 
 export interface LoginResponse {
@@ -57,19 +59,36 @@ export class AuthService {
   private async handleDatabaseOperation<T>(operation: () => Promise<T>): Promise<T> {
     try {
       return await operation();
-    } catch (error) {
-      console.error('Database operation error:', error);
+    } catch (err: any) {
+      // Avoid leaking internals, but keep meaningful mapping
+      const message = typeof err?.message === 'string' ? err.message : '';
+      console.error('Database operation error:', {
+        message,
+        code: err?.code,
+        details: err?.details,
+        hint: err?.hint,
+      });
 
-      if (error.message?.includes('API key')) {
+      if (message.includes('API key')) {
         throw new InternalServerErrorException('Database configuration error: Invalid API key');
       }
-      if (error.message?.includes('JWT')) {
+      if (message.includes('JWT')) {
         throw new UnauthorizedException('Invalid or expired token');
       }
+      if (message.includes('duplicate key') || err?.code === '23505') {
+        throw new BadRequestException('Resource already exists');
+      }
+      if (message.includes('not found')) {
+        throw new NotFoundException('Resource not found');
+      }
 
-      throw error instanceof Error
-        ? new InternalServerErrorException(error.message)
-        : new InternalServerErrorException('Database operation failed');
+      if (err instanceof HttpException) {
+        // Preserve already-formed HTTP exceptions (e.g., UnauthorizedException thrown inside operation)
+        throw err;
+      }
+
+      // Generic error handling
+      throw new InternalServerErrorException(message || 'Database operation failed');
     }
   }
 
@@ -105,14 +124,14 @@ export class AuthService {
         role: UserRole.SISWA,
         status: UserStatus.PENDING,
         channel_year: registerDto.channel_year || currentYear,
-        division_id: registerDto.division_id || null,
+        division: registerDto.division || null,
         school_name: registerDto.school_name || null,
       };
 
       const { data: user, error: insertError } = await this.adminClient
         .from('users')
         .insert([userData])
-        .select()
+        .select('id, email, full_name, role, status, channel_year, school_name, division')
         .single();
 
       if (insertError) throw new InternalServerErrorException(insertError.message);
@@ -132,9 +151,9 @@ export class AuthService {
 
       const { data: user, error: searchError } = await this.adminClient
         .from('users')
-        .select('*')
+        .select('id, email, full_name, role, status, password')
         .eq('email', email)
-        .single();
+        .maybeSingle();
 
       if (searchError) throw new InternalServerErrorException(searchError.message);
       if (!user) throw new UnauthorizedException('Invalid credentials');
@@ -163,7 +182,7 @@ export class AuthService {
         });
       }
 
-      const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
+      const isPasswordValid = user?.password ? await bcrypt.compare(loginDto.password, user.password) : false;
       if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
 
       const payload = { sub: user.id, email: user.email, role: user.role };
@@ -190,7 +209,7 @@ export class AuthService {
       const { data: user, error } = await this.adminClient
         .from('users')
         .select(
-          'id, email, full_name, role, status, channel_year, school_name, division_id',
+          'id, email, full_name, role, status, channel_year, school_name, division',
         )
         .eq('id', userId)
         .maybeSingle();

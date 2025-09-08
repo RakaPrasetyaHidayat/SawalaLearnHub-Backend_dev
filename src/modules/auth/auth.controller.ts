@@ -9,12 +9,7 @@ import {
   HttpStatus,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
-import {
-  RegisterDto,
-  LoginDto,
-  ForgotPasswordDto,
-  ResetPasswordDto,
-} from './dto/auth.dto';
+import { RegisterDto, LoginDto } from './dto/auth.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { GetUser } from './decorators/get-user.decorator';
 
@@ -44,9 +39,20 @@ export class AuthController {
 
   // ✅ Login user
   @Post('login')
-  @HttpCode(HttpStatus.OK) // Supaya tidak selalu return 201
+  @HttpCode(HttpStatus.OK)
   async login(@Body() loginDto: LoginDto) {
     return await this.authService.login(loginDto);
+  }
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getCurrentUser(@GetUser('id') userId: string) {
+    return await this.authService.me(userId);
+  }
+
+  @Get('check')
+  async healthCheck() {
+    return await this.authService.dbCheck();
   }
 
   // ✅ Mendapatkan data user yang sedang login
@@ -61,4 +67,9 @@ export class AuthController {
   async dbCheck() {
     return await this.authService.dbCheck();
   }
+
+  
+
 }
+
+

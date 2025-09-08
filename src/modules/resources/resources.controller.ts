@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, Query } from '@nestjs/common';
 import { ResourcesService } from './resources.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { CreateResourceDto } from './dto/resource.dto';
+import { CreateResourceDto, GetResourcesQueryDto } from './dto/resource.dto';
 
 @Controller('resources')
 export class ResourcesController {
@@ -47,6 +47,18 @@ export class ResourcesController {
       status: 'success',
       message: 'Resource created successfully',
       data: resource
+    };
+  }
+
+  // NEW: Get all resources (optional filter by channel_year)
+  @Get()
+  @UseGuards(JwtAuthGuard)
+  async getAllResources(@Query() query: GetResourcesQueryDto) {
+    const resources = await this.resourcesService.getAllResources(query);
+    return {
+      status: 'success',
+      message: 'Resources retrieved successfully',
+      data: resources
     };
   }
 

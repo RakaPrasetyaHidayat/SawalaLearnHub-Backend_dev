@@ -17,10 +17,18 @@ import { UserRole, UserStatus } from '../../common/enums';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { UpdateUserStatusDto, SearchUsersDto } from './dto/user.dto';
+import { GetUsersByDivisionDto } from './dto/user-division.dto';
 
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  @Get('division/:divisionId')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getUsersByDivision(@Param('divisionId') divisionId: string) {
+    return await this.usersService.getUsersByDivision(divisionId);
+  }
 
   @Get('info')
   async getUsersInfo() {

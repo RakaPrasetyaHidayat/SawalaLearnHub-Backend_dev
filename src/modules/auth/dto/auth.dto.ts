@@ -1,4 +1,11 @@
-import { IsEmail, IsNotEmpty, IsString, MinLength, IsNumber, IsOptional } from 'class-validator';
+import { 
+  IsEmail, 
+  IsNotEmpty, 
+  IsString, 
+  MinLength, 
+  IsNumber, 
+  IsOptional
+} from 'class-validator';
 
 export class RegisterDto {
   @IsEmail()
@@ -14,9 +21,10 @@ export class RegisterDto {
   @MinLength(6)
   password: string;
 
+  // ⬅️ pakai string, biar bisa nerima "Backend", "Frontend", dll
   @IsString()
   @IsOptional()
-  division_id?: string;
+  division?: string;
 
   @IsNumber()
   @IsOptional()
@@ -41,19 +49,8 @@ export class LoginDto {
   password: string;
 }
 
-export class ForgotPasswordDto {
-  @IsEmail()
-  @IsNotEmpty()
+export class TokenPayload {
+  sub: string;
   email: string;
-}
-
-export class ResetPasswordDto {
-  @IsString()
-  @IsNotEmpty()
-  token: string;
-
-  @IsString()
-  @IsNotEmpty()
-  @MinLength(6)
-  new_password: string;
+  role: string;
 }

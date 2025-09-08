@@ -10,6 +10,7 @@ import { SupabaseModule } from './infra/supabase/supabase.module';
 import { TimeoutMiddleware } from './common/middleware/timeout.middleware';
 import { CorsMiddleware } from './common/middleware/cors.middleware';
 import { ConfigModule } from './config/config.module'; // use custom config module with validation
+import { DivisionModule } from './modules/division/division.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { ConfigModule } from './config/config.module'; // use custom config modu
     PostsModule,
     ResourcesModule,
     CommentsModule,
+    DivisionModule,
   ],
   controllers: [AppController],
   providers: [],

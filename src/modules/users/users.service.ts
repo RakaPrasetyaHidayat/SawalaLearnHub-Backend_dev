@@ -7,12 +7,36 @@ import {
 import { SupabaseService } from '../../infra/supabase/supabase.service';
 import { UserRole, UserStatus } from '../../common/enums';
 import { UpdateUserStatusDto, SearchUsersDto } from './dto/user.dto';
+import { GetUsersByDivisionDto } from './dto/user-division.dto';
 import { PostgrestSingleResponse } from '@supabase/supabase-js';
 import { DB_FUNCTIONS, TABLE_NAMES, buildPaginationQuery, handleDbError } from '../../common/utils/database.utils';
 
 @Injectable()
 export class UsersService {
   constructor(private readonly supabaseService: SupabaseService) {}
+
+  async getUsersByDivision(divisionId: string) {
+    try {
+      const { data: users, error } = await this.supabaseService
+        .getClient(true)
+        .from('users')
+        .select('id, email, full_name, role, status, division_id, school_name, channel_year')
+        .eq('division_id', divisionId)
+        .eq('status', UserStatus.APPROVED);
+
+      if (error) {
+        throw handleDbError(error);
+      }
+
+      return {
+        status: 'success',
+        message: 'Users retrieved successfully',
+        data: users
+      };
+    } catch (error) {
+      throw handleDbError(error);
+    }
+  }
 
   private async ensureAdmin(userId: string) {
     const { data: admin, error } = await this.supabaseService

@@ -10,6 +10,7 @@ export enum UserRole {
   MENTOR = 'MENTOR'
 }
 
+
 export enum TaskStatus {
   ACTIVE = 'ACTIVE',
   COMPLETED = 'COMPLETED',
@@ -21,4 +22,11 @@ export enum SubmissionStatus {
   OVERDUE = 'OVERDUE',
   REVISED = 'REVISED',
   APPROVED = 'APPROVED'
+}
+
+export enum Division {
+  BACKEND = 'BACKEND',
+  FRONTEND = 'FRONTEND',
+  UI_UX = 'UI_UX',
+  DEVOPS = 'DEVOPS'
 }

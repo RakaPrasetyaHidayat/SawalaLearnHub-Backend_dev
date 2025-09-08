@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { SupabaseService } from '../../infra/supabase/supabase.service';
-import { CreateResourceDto } from './dto/resource.dto';
+import { CreateResourceDto, GetResourcesQueryDto } from './dto/resource.dto';
 
 @Injectable()
 export class ResourcesService {
@@ -18,6 +18,26 @@ export class ResourcesService {
 
     if (error) throw error;
     return resource;
+  }
+
+  // NEW: Get all resources with optional filter by channel_year
+  async getAllResources(query: GetResourcesQueryDto) {
+    const client = this.supabaseService.getClient();
+    let builder = client
+      .from('resources')
+      .select(`
+        *,
+        created_by:users(id, full_name, email)
+      `)
+      .order('created_at', { ascending: false });
+
+    if (query?.channel_year !== undefined) {
+      builder = builder.eq('channel_year', query.channel_year);
+    }
+
+    const { data: resources, error } = await builder;
+    if (error) throw error;
+    return resources;
   }
 
   async getResourcesByYear(year: string) {
