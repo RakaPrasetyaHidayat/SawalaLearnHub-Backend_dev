@@ -72,6 +72,7 @@ export async function login(email: string, password: string): Promise<AuthState>
     }
 
     const data = await response.json()
+    console.log('Login response data:', data);
     
     if (data.token && data.user) {
       setAuthToken(data.token, true)

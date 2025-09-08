@@ -1,22 +1,33 @@
 "use client"
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Input } from '@/components/atoms/ui/input'
 import Title from '@/components/molecules/title'
 import { UserCard } from '@/components/molecules/cards/user-card'
-
-const mockMembers = [
-  { id: 1, username: 'bimo_fikry', division: 'UI UX designer', school: 'SMKN 1 Sumedang', avatarSrc: '/assets/icons/profile.png' },
-  { id: 2, username: 'bimo_fikry', division: 'UI UX designer', school: 'SMKN 1 Sumedang', avatarSrc: '/assets/icons/profile.png' },
-  { id: 3, username: 'bimo_fikry', division: 'UI UX designer', school: 'SMKN 1 Sumedang', avatarSrc: '/assets/icons/profile.png' },
-  { id: 4, username: 'bimo_fikry', division: 'UI UX designer', school: 'SMKN 1 Sumedang', avatarSrc: '/assets/icons/profile.png' },
-  { id: 5, username: 'bimo_fikry', division: 'UI UX designer', school: 'SMKN 1 Sumedang', avatarSrc: '/assets/icons/profile.png' },
-  { id: 6, username: 'bimo_fikry', division: 'UI UX designer', school: 'SMKN 1 Sumedang', avatarSrc: '/assets/icons/profile.png' },
-]
+import { apiFetcher } from '@/services/fetcher'
 
 export default function MembersPageClient() {
   const [searchQuery, setSearchQuery] = useState('')
-  const [members] = useState(mockMembers)
+  const [members, setMembers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    const fetchMembers = async () => {
+      try {
+        setLoading(true)
+        const data = await apiFetcher('/api/users')
+        setMembers(data)
+      } catch (err) {
+        console.error('Failed to fetch members:', err)
+        setError('Failed to fetch members. Please try again later.')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchMembers()
+  }, [])
 
   const filteredMembers = members.filter(member =>
     member.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -62,24 +73,34 @@ export default function MembersPageClient() {
           />
         </div>
 
-        <div className="space-y-3">
-          {filteredMembers.map((member) => (
-            <UserCard
-              key={member.id}
-              avatarSrc={member.avatarSrc}
-              avatarAlt={`${member.username} avatar`}
-              username={member.username}
-              division={member.division}
-              school={member.school}
-              onViewProfile={() => handleViewProfile(member.id)}
-            />
-          ))}
-        </div>
+        {loading ? (
+          <div className="text-center py-8">
+            <p className="text-gray-500">Loading members...</p>
+          </div>
+        ) : error ? (
+          <div className="text-center py-8">
+            <p className="text-red-500">{error}</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredMembers.map((member) => (
+              <UserCard
+                key={member.id}
+                avatarSrc={member.avatarSrc}
+                avatarAlt={`${member.username} avatar`}
+                username={member.username}
+                division={member.division}
+                school={member.school}
+                onViewProfile={() => handleViewProfile(member.id)}
+              />
+            ))}
+          </div>
+        )}
 
-        {filteredMembers.length === 0 && (
+        {filteredMembers.length === 0 && !loading && !error && (
           <div className="text-center py-8">
             <p className="text-gray-500">No members found matching your search.</p>
-          </div>
+          </div> 
         )}
       </div>
     </div>
