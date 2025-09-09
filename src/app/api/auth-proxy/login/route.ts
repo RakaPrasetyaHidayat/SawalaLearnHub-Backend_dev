@@ -27,7 +27,7 @@ export async function GET(request: Request) {
 
     // Using per-attempt timeouts below
 
-    const base = process.env.NEXT_PUBLIC_API_BASE_URL || '';
+    const base = process.env.API_BASE_URL || process.env.NEXT_PUBLIC_API_BASE_URL || '';
     if (!base) {
       return NextResponse.json(
         { status: 'error', message: 'Missing NEXT_PUBLIC_API_BASE_URL on server' },
