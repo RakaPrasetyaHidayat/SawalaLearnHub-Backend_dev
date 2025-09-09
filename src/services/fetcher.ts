@@ -55,9 +55,13 @@ export async function apiFetcher<T>(
     if (!res.ok) {
       if (res.status === 401) {
         removeAuthToken();
-        console.error("Authentication failed. Redirecting to login.");
+        console.error("Authentication failed.");
         if (typeof window !== "undefined") {
-          window.location.href = "/login";
+          const p = window.location.pathname || "";
+          if (!p.startsWith("/login") && !p.startsWith("/register")) {
+            // Only redirect on protected pages to avoid flicker on login/register
+            // window.location.href = "/login";
+          }
         }
         throw new Error("Unauthorized");
       }

@@ -2,7 +2,7 @@ import path from "path";
 import fs from "fs";
 
 const nextConfig = {
-  // distDir dihapus agar menggunakan default ".next" (diperlukan oleh Vercel)
+  distDir: "dist",
   productionBrowserSourceMaps: process.env.NODE_ENV === "production",
   reactStrictMode: false,
   typescript: {
