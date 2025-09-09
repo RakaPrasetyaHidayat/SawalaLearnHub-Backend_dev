@@ -56,8 +56,10 @@ export async function apiFetcher<T>(
       if (res.status === 401) {
         removeAuthToken();
         console.error("Authentication failed. Redirecting to login.");
-        window.location.href = "/login"; // Redirect to login page
-        throw new Error(`Authentication required. Please log in again.`);
+        if (typeof window !== "undefined") {
+          window.location.href = "/login";
+        }
+        throw new Error("Unauthorized");
       }
       throw new Error(`API Error: ${res.status} ${res.statusText}`);
     }

@@ -11,8 +11,9 @@ import { Alert, AlertDescription, AlertTitle } from "../../molecules/alert/alert
 import { XCircle } from "lucide-react"
 import BrandHeader from "@/components/molecules/brand-header"
 
-// Import service
+// Import services
 import { loginUser } from "@/services/authService";
+import { setAuthToken } from "@/services/fetcher";
 
 export function LoginCard() {
   const router = useRouter()
@@ -29,9 +30,15 @@ export function LoginCard() {
     try {
       const data = await loginUser(email, password)
 
-      // Simpan token ke localStorage (atau bisa cookies kalau butuh SSR)
-      localStorage.setItem("token", data.token)
-      localStorage.setItem("user", JSON.stringify(data.user))
+      // Pastikan respons valid
+      if (!data || !data.token || !data.user) {
+        throw new Error("Login response invalid: token or user missing")
+      }
+
+      // Simpan token untuk dipakai oleh apiFetcher (gunakan key 'auth_token')
+      setAuthToken(data.token, true)
+      // Simpan data user sesuai util auth
+      localStorage.setItem("user_data", JSON.stringify(data.user))
 
       // Redirect ke halaman utama
       router.push("/main-Page")
