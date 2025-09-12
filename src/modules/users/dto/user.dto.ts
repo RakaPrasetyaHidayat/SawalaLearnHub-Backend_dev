@@ -25,6 +25,25 @@ export class UpdateUserProfileDto {
   school_name: string;
 }
 
+export class UpdateOwnProfileDto {
+  @IsString()
+  @IsOptional()
+  full_name?: string;
+
+  // Division stored as text in many tables; accept string for flexibility
+  @IsString()
+  @IsOptional()
+  division_id?: string;
+
+  @IsString()
+  @IsOptional()
+  school_name?: string;
+
+  @IsNumber()
+  @IsOptional()
+  channel_year?: number;
+}
+
 export class UserEducationDto {
   @IsString()
   @IsNotEmpty()

@@ -43,6 +43,19 @@ export class SupabaseService implements OnModuleInit {
     return client;
   }
 
+  /**
+   * Create a Supabase client that includes user's access token in Authorization header.
+   * This client can be used to perform actions as the authenticated user (useful for RLS policies).
+   */
+  public getClientWithAuth(accessToken: string): SupabaseClient {
+    const { url, anonKey } = this.configService.supabaseConfig;
+    if (!url || !anonKey) throw new Error('Supabase not configured');
+    return createClient(url, anonKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+      global: { headers: { Authorization: `Bearer ${accessToken}` } },
+    });
+  }
+
   // =============================
   // AUTH
   // =============================

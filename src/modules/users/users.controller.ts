@@ -23,11 +23,48 @@ import { GetUsersByDivisionDto } from './dto/user-division.dto';
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @Get('division/:divisionId')
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  @Roles(UserRole.ADMIN)
-  async getUsersByDivision(@Param('divisionId') divisionId: string) {
-    return await this.usersService.getUsersByDivision(divisionId);
+  @Get('division/:division_id')
+  @UseGuards(JwtAuthGuard)
+  async getUsersByDivision(@Param('division_id') division_id: string) {
+    return await this.usersService.getUsersByDivision(division_id);
+  }
+
+  @Get('year/:year')
+  @UseGuards(JwtAuthGuard)
+  async getUsersByYear(
+    @Param('year') year: string,
+    @GetUser('role') role: UserRole,
+  ) {
+    const onlyApproved = role !== UserRole.ADMIN;
+    return await this.usersService.getUsersByYear(year, onlyApproved);
+  }
+
+  // NEW: Get distinct division_ids for a given year with optional counts
+  @Get('year/:year/division_id')
+  @UseGuards(JwtAuthGuard)
+  async getDivisionIdsByYear(
+    @Param('year') year: string,
+    @GetUser('role') role: UserRole,
+  ) {
+    const onlyApproved = role !== UserRole.ADMIN;
+    return await this.usersService.getDivisionIdsByYear(year, onlyApproved);
+  }
+
+  // NEW (exact path as requested): /api/users/year/division_id?year=YYYY
+  @Get('year/division_id')
+  @UseGuards(JwtAuthGuard)
+  async getDivisionIdsByYearQuery(
+    @Query('year') year: string,
+    @GetUser('role') role: UserRole,
+  ) {
+    if (!year) {
+      throw new HttpException(
+        { status: 'error', message: 'Query parameter "year" is required' },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+    const onlyApproved = role !== UserRole.ADMIN;
+    return await this.usersService.getDivisionIdsByYear(year, onlyApproved);
   }
 
   @Get('info')
@@ -68,14 +105,21 @@ export class UsersController {
   }
 
   @Get('all')
-  @Roles(UserRole.ADMIN)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  async getAllUsers() {
+  @UseGuards(JwtAuthGuard)
+  async getAllUsers(
+    @GetUser('role') role: UserRole,
+  ) {
     const users = await this.usersService.getAllUsersFromDatabase();
+
+    // Non-admins only see approved users
+    const filtered = role === UserRole.ADMIN
+      ? users
+      : (Array.isArray(users) ? users.filter((u: any) => u.status === UserStatus.APPROVED) : []);
+
     return {
       status: 'success',
       message: 'Users retrieved successfully',
-      data: Array.isArray(users) ? users : [],
+      data: filtered,
     };
   }
 
@@ -177,10 +221,17 @@ export class UsersController {
   }
 
   @Get()
-  @Roles(UserRole.ADMIN)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  async findAll(@Query() searchDto: SearchUsersDto) {
+  @UseGuards(JwtAuthGuard)
+  async findAll(
+    @Query() searchDto: SearchUsersDto,
+    @GetUser('role') role: UserRole,
+  ) {
     try {
+      // Non-admins can only see APPROVED users
+      if (role !== UserRole.ADMIN) {
+        searchDto.status = UserStatus.APPROVED;
+      }
+
       const users = await this.usersService.findAll(searchDto);
       return {
         status: 'success',
@@ -235,9 +286,35 @@ export class UsersController {
   }
 
   @Get('pending')
-  @Roles(UserRole.ADMIN)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  async getPendingUsers() {
+  @UseGuards(JwtAuthGuard)
+  async getPendingUsers(
+    @GetUser('role') role: UserRole,
+  ) {
+    // Admins can view pending; non-admins receive empty for safety
+    if (role !== UserRole.ADMIN) {
+      return { data: [], total: 0, page: 1, limit: 10, totalPages: 0 };
+    }
     return this.usersService.findAll({ status: UserStatus.PENDING });
+  }
+
+  @Patch('me')
+  @UseGuards(JwtAuthGuard)
+  async updateOwnProfile(
+    @GetUser('sub') userId: string,
+    @Body() updateDto: any,
+  ) {
+    try {
+      const updated = await this.usersService.updateOwnProfile(userId, updateDto);
+      return {
+        status: 'success',
+        message: 'Profile updated successfully',
+        data: updated,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { status: 'error', message: error.message },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 }

@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, Query, Headers } from '@nestjs/common';
 import { ResourcesService } from './resources.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -41,8 +41,11 @@ export class ResourcesController {
   async createResource(
     @Body() createResourceDto: CreateResourceDto,
     @GetUser('id') userId: string,
+    @Headers('authorization') authorization?: string,
   ) {
-    const resource = await this.resourcesService.createResource(createResourceDto, userId);
+    // accept Authorization: Bearer <access_token> from frontend and forward to service
+    const token = authorization?.startsWith('Bearer ') ? authorization.split(' ')[1] : authorization;
+    const resource = await this.resourcesService.createResource(createResourceDto, userId, token);
     return {
       status: 'success',
       message: 'Resource created successfully',
@@ -50,11 +53,15 @@ export class ResourcesController {
     };
   }
 
-  // NEW: Get all resources (optional filter by channel_year)
+  // Get resources filtered by division and year
   @Get()
   @UseGuards(JwtAuthGuard)
-  async getAllResources(@Query() query: GetResourcesQueryDto) {
-    const resources = await this.resourcesService.getAllResources(query);
+  async getAllResources(
+    @Query() query: GetResourcesQueryDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const token = authorization?.startsWith('Bearer ') ? authorization.split(' ')[1] : authorization;
+    const resources = await this.resourcesService.getAllResources(query, token);
     return {
       status: 'success',
       message: 'Resources retrieved successfully',

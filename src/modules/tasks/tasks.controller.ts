@@ -1,4 +1,6 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, UseGuards, UploadedFile, UseInterceptors, Headers } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { memoryStorage } from 'multer';
 import { TasksService } from './tasks.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -56,14 +58,24 @@ export class TasksController {
 
   @Post()
   @UseGuards(JwtAuthGuard)
-  createTask(@Body() createTaskDto: CreateTaskDto, @GetUser('id') adminId: string) {
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 25 * 1024 * 1024 }, // 25MB
+    }),
+  )
+  async createTask(
+    @Body() createTaskDto: CreateTaskDto,
+    @GetUser('id') adminId: string,
+    @UploadedFile() file?: Express.Multer.File,
+    @Headers('authorization') authorization?: string,
+  ) {
+    const token = authorization?.startsWith('Bearer ') ? authorization.split(' ')[1] : authorization;
+    const task = await this.tasksService.createTask(createTaskDto, adminId, file, token);
     return {
       status: 'success',
       message: 'Task created successfully',
-      data: {
-        taskId: 'example-task-id',
-        adminId,
-      },
+      data: task,
     };
   }
 

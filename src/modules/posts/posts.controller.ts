@@ -1,6 +1,25 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Post,
+  Query,
+  UseGuards,
+  UseInterceptors,
+  UploadedFile,
+} from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import * as multer from 'multer';
 import { PostsService } from './posts.service';
-import { CreatePostDto, UpdatePostDto, CreatePostCommentDto, FilterPostsDto } from './dto/post.dto';
+import {
+  CreatePostDto,
+  UpdatePostDto,
+  CreatePostCommentDto,
+  FilterPostsDto,
+} from './dto/post.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 
@@ -8,55 +27,41 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
-  @Get('info')
-  async getPostsInfo() {
-    return {
-      status: 'success',
-      message: 'Posts API endpoints information',
-      data: {
-        description: 'Endpoints for managing learning posts',
-        endpoints: {
-          getPosts: {
-            method: 'GET',
-            url: '/api/posts',
-            description: 'Get list of posts with optional filters'
-          },
-          createPost: {
-            method: 'POST',
-            url: '/api/posts',
-            description: 'Create a new post'
-          },
-          getPost: {
-            method: 'GET',
-            url: '/api/posts/:id',
-            description: 'Get post details by ID'
-          },
-          updatePost: {
-            method: 'PATCH',
-            url: '/api/posts/:id',
-            description: 'Update post by ID'
-          },
-          deletePost: {
-            method: 'DELETE',
-            url: '/api/posts/:id',
-            description: 'Delete post by ID'
-          }
-        }
-      }
-    };
-  }
-
+  // allow optional file upload (documents/images)
+  // accepted types: pdf, doc, docx, xls, xlsx, ppt, pptx, jpg/jpeg, png
   @Post()
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: multer.memoryStorage(),
+      limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit
+  fileFilter: (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+        const allowed = [
+          'application/pdf',
+          'application/msword',
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+          'application/vnd.ms-excel',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          'application/vnd.ms-powerpoint',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+          'image/jpeg',
+          'image/png',
+        ];
+  if (allowed.includes(file.mimetype)) cb(null, true);
+  else cb((new Error('Unsupported file type') as any), false);
+      },
+    }),
+  )
   async create(
     @Body() createPostDto: CreatePostDto,
-    @GetUser('id') userId: string
+    @GetUser('id') userId: string,
+    @UploadedFile() file?: Express.Multer.File,
   ) {
-    const post = await this.postsService.create(createPostDto, userId);
+    const post = await this.postsService.create(createPostDto, userId, file);
     return {
       status: 'success',
       message: 'Post created successfully',
-      data: post
+      data: post,
     };
   }
 
@@ -77,17 +82,14 @@ export class PostsController {
   update(
     @Param('id') id: string,
     @Body() updatePostDto: UpdatePostDto,
-    @GetUser('id') userId: string
+    @GetUser('id') userId: string,
   ) {
     return this.postsService.update(id, updatePostDto, userId);
   }
 
   @Delete(':id')
   @UseGuards(JwtAuthGuard)
-  remove(
-    @Param('id') id: string,
-    @GetUser('id') userId: string
-  ) {
+  remove(@Param('id') id: string, @GetUser('id') userId: string) {
     return this.postsService.remove(id, userId);
   }
 
@@ -96,7 +98,7 @@ export class PostsController {
   addComment(
     @Param('id') postId: string,
     @Body() commentDto: CreatePostCommentDto,
-    @GetUser('id') userId: string
+    @GetUser('id') userId: string,
   ) {
     return this.postsService.addComment(postId, userId, commentDto);
   }
@@ -109,10 +111,7 @@ export class PostsController {
 
   @Post(':id/likes')
   @UseGuards(JwtAuthGuard)
-  toggleLike(
-    @Param('id') postId: string,
-    @GetUser('id') userId: string
-  ) {
+  toggleLike(@Param('id') postId: string, @GetUser('id') userId: string) {
     return this.postsService.toggleLike(postId, userId);
   }
 

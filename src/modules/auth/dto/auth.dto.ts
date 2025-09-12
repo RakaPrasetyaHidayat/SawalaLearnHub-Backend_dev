@@ -24,7 +24,7 @@ export class RegisterDto {
   // ⬅️ pakai string, biar bisa nerima "Backend", "Frontend", dll
   @IsString()
   @IsOptional()
-  division?: string;
+  division_id: string;
 
   @IsNumber()
   @IsOptional()

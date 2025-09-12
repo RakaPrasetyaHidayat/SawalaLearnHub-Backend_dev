@@ -26,7 +26,7 @@ export interface AuthUser {
   status: UserStatus;
   channel_year?: number;
   school_name?: string;
-  division?: Division;
+  division_id: Division;
 }
 
 export interface LoginResponse {
@@ -124,14 +124,14 @@ export class AuthService {
         role: UserRole.SISWA,
         status: UserStatus.PENDING,
         channel_year: registerDto.channel_year || currentYear,
-        division: registerDto.division || null,
+        division_id: registerDto.division_id || null,
         school_name: registerDto.school_name || null,
       };
 
       const { data: user, error: insertError } = await this.adminClient
         .from('users')
         .insert([userData])
-        .select('id, email, full_name, role, status, channel_year, school_name, division')
+        .select('id, email, full_name, role, status, channel_year, school_name, division_id')
         .single();
 
       if (insertError) throw new InternalServerErrorException(insertError.message);
@@ -209,7 +209,7 @@ export class AuthService {
       const { data: user, error } = await this.adminClient
         .from('users')
         .select(
-          'id, email, full_name, role, status, channel_year, school_name, division',
+          'id, email, full_name, role, status, channel_year, school_name, division_id',
         )
         .eq('id', userId)
         .maybeSingle();

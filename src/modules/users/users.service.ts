@@ -15,13 +15,13 @@ import { DB_FUNCTIONS, TABLE_NAMES, buildPaginationQuery, handleDbError } from '
 export class UsersService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
-  async getUsersByDivision(divisionId: string) {
+  async getUsersByDivision(division_id: string) {
     try {
       const { data: users, error } = await this.supabaseService
         .getClient(true)
         .from('users')
         .select('id, email, full_name, role, status, division_id, school_name, channel_year')
-        .eq('division_id', divisionId)
+        .eq('division_id', division_id)
         .eq('status', UserStatus.APPROVED);
 
       if (error) {
@@ -32,6 +32,69 @@ export class UsersService {
         status: 'success',
         message: 'Users retrieved successfully',
         data: users
+      };
+    } catch (error) {
+      throw handleDbError(error);
+    }
+  }
+
+  async getUsersByYear(year: string, onlyApproved = true) {
+    try {
+      let q = this.supabaseService
+        .getClient(true)
+        .from('users')
+        .select('id, email, full_name, role, status, division_id, school_name, channel_year')
+        .eq('channel_year', year);
+
+      if (onlyApproved) {
+        q = q.eq('status', UserStatus.APPROVED);
+      }
+
+      const { data: users, error } = await q;
+
+      if (error) throw handleDbError(error);
+
+      return {
+        status: 'success',
+        message: 'Users retrieved successfully',
+        data: users
+      };
+    } catch (error) {
+      throw handleDbError(error);
+    }
+  }
+
+  // NEW: return distinct division_ids for a given year with counts
+  async getDivisionIdsByYear(year: string, onlyApproved = true) {
+    try {
+      let q = this.supabaseService
+        .getClient(true)
+        .from('users')
+        .select('division_id')
+        .eq('channel_year', year)
+        .not('division_id', 'is', null);
+
+      if (onlyApproved) {
+        q = q.eq('status', UserStatus.APPROVED);
+      }
+
+      const { data, error } = await q;
+      if (error) throw handleDbError(error);
+
+      // Aggregate distinct division_ids and counts on server side (JS)
+      const counts: Record<string, number> = {};
+      for (const row of data || []) {
+        const id = row.division_id as string;
+        if (!id) continue;
+        counts[id] = (counts[id] || 0) + 1;
+      }
+
+      const result = Object.entries(counts).map(([division_id, count]) => ({ division_id, count }));
+
+      return {
+        status: 'success',
+        message: 'Division IDs by year retrieved successfully',
+        data: result,
       };
     } catch (error) {
       throw handleDbError(error);
@@ -191,5 +254,33 @@ export class UsersService {
       limit,
       totalPages: Math.ceil((count || 0) / limit),
     };
+  }
+
+  // Allow authenticated users to update their own profile (division, year, name, school)
+  async updateOwnProfile(userId: string, update: any) {
+    try {
+      const payload: any = {};
+      if (update.full_name) payload.full_name = update.full_name;
+      if (update.school_name) payload.school_name = update.school_name;
+      if (typeof update.division_id !== 'undefined') payload.division_id = update.division_id;
+      if (typeof update.channel_year !== 'undefined') payload.channel_year = update.channel_year;
+
+      if (Object.keys(payload).length === 0) {
+        throw new BadRequestException('No valid fields provided for update');
+      }
+
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from('users')
+        .update(payload)
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw handleDbError(error);
+    }
   }
 }

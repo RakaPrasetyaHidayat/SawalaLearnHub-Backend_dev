@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsDateString, IsOptional, IsEnum } from 'class-validator';
+import { IsString, IsNotEmpty, IsDateString, IsOptional, IsEnum, IsNumber } from 'class-validator';
 import { SubmissionStatus } from '@/common/enums';
 
 export class CreateTaskDto {
@@ -13,10 +13,13 @@ export class CreateTaskDto {
   @IsDateString()
   @IsNotEmpty()
   deadline: string;
+  @IsOptional()
+  @IsNumber()
+  angkatan?: number;
 
+  @IsOptional()
   @IsString()
-  @IsNotEmpty()
-  angkatan: string;
+  division_id?: string;
 }
 
 export class SubmitTaskDto {

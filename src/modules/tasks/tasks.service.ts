@@ -7,15 +7,44 @@ import { PaginationParams } from '../../common/utils/api.utils';
 @Injectable()
 export class TasksService extends BaseService {
 
-  async createTask(createTaskDto: CreateTaskDto, adminId: string) {
+  async createTask(createTaskDto: CreateTaskDto, adminId: string, file?: Express.Multer.File, accessToken?: string) {
     try {
-      const result = await this.callRpc('create_task', {
+      let fileUrl: string | null = null;
+
+      if (file && file.buffer) {
+        // Use token-bound client if provided (to respect RLS for storage)
+        const client = accessToken
+          ? this.supabaseService.getClientWithAuth(accessToken)
+          : this.supabaseService.getClient(true); // use admin if no token
+
+        const filePath = `task-files/${Date.now()}-${file.originalname}`;
+        const { data: uploadData, error: uploadErr } = await client.storage
+          .from('task-files')
+          .upload(filePath, file.buffer, { contentType: file.mimetype });
+
+        if (uploadErr) {
+          // fallback: try admin client
+          const adminClient = this.supabaseService.getClient(true);
+          const { data: uploadData2, error: uploadErr2 } = await adminClient.storage
+            .from('task-files')
+            .upload(filePath, file.buffer, { contentType: file.mimetype });
+          if (uploadErr2) throw uploadErr2;
+          fileUrl = adminClient.storage.from('task-files').getPublicUrl(uploadData2.path).data.publicUrl;
+        } else {
+          fileUrl = client.storage.from('task-files').getPublicUrl(uploadData.path).data.publicUrl;
+        }
+      }
+
+      const rpcParams: any = {
         p_title: createTaskDto.title,
-        p_description: createTaskDto.description,
+        p_description: createTaskDto.description + (fileUrl ? `\nFile: ${fileUrl}` : ''),
         p_deadline: createTaskDto.deadline,
-        p_channel_year: parseInt(createTaskDto.angkatan),
-        p_created_by: adminId
-      });
+        p_channel_year: createTaskDto.angkatan ? Number(createTaskDto.angkatan) : null,
+        p_created_by: adminId,
+        p_division_id: createTaskDto.division_id || null,
+      };
+
+      const result = await this.callRpc('create_task', rpcParams as any);
 
       return {
         status: 'success',

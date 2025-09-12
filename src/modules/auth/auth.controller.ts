@@ -55,12 +55,7 @@ export class AuthController {
     return await this.authService.dbCheck();
   }
 
-  // ✅ Mendapatkan data user yang sedang login
-  @UseGuards(JwtAuthGuard)
-  @Get('me')
-  async me(@GetUser('sub') userId: string) {
-    return await this.authService.me(userId);
-  }
+ 
 
   // ✅ Healthcheck DB untuk cek koneksi/env
   @Get('db-check')

@@ -1,4 +1,5 @@
-import { IsOptional, IsString, IsUUID } from 'class-validator';
+// dto/post.dto.ts
+import { IsOptional, IsString, IsUUID, IsNumber } from 'class-validator';
 
 export class CreatePostDto {
   @IsString()
@@ -7,6 +8,7 @@ export class CreatePostDto {
   @IsString()
   @IsOptional()
   media_url?: string;
+
 }
 
 export class UpdatePostDto {
@@ -17,6 +19,7 @@ export class UpdatePostDto {
   @IsString()
   @IsOptional()
   media_url?: string;
+
 }
 
 export class CreatePostCommentDto {
