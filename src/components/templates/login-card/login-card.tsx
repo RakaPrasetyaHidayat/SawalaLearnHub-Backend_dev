@@ -1,53 +1,64 @@
-"use client"
+"use client";
 
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "@/components/molecules/cards/card"
-import { Input } from "@/components/atoms/ui/input"
-import { Label } from "@/components/atoms/ui/label"
-import { Button } from "@/components/atoms/ui/button"
-import Image from "next/image"
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Alert, AlertDescription, AlertTitle } from "../../molecules/alert/alert"
-import { XCircle } from "lucide-react"
-import BrandHeader from "@/components/molecules/brand-header"
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+  CardFooter,
+} from "@/components/molecules/cards/card";
+import { Input } from "@/components/atoms/ui/input";
+import { Label } from "@/components/atoms/ui/label";
+import { Button } from "@/components/atoms/ui/button";
+import Image from "next/image";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "../../molecules/alert/alert";
+import { XCircle } from "lucide-react";
+import BrandHeader from "@/components/molecules/brand-header";
 
-// Import services
+// Import service
 import { loginUser } from "@/services/authService";
-import { setAuthToken } from "@/services/fetcher";
 
 export function LoginCard() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [password, setPassword] = useState("")
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
-    setLoading(true)
+    e.preventDefault();
+    setError("");
+    setLoading(true);
 
     try {
-      const data = await loginUser(email, password)
+      const data = await loginUser(email, password);
 
-      // Pastikan respons valid
-      if (!data || !data.token || !data.user) {
-        throw new Error("Login response invalid: token or user missing")
+      // Simpan token lewat helper agar konsisten
+      try {
+        const { setAuthToken } = await import("@/services/fetcher");
+        setAuthToken(data.token, true);
+      } catch {
+        // fallback
+        localStorage.setItem("auth_token", data.token);
       }
-
-      // Simpan token untuk dipakai oleh apiFetcher (gunakan key 'auth_token')
-      setAuthToken(data.token, true)
-      // Simpan data user sesuai util auth
-      localStorage.setItem("user_data", JSON.stringify(data.user))
+      // Simpan user data konsisten dengan util auth.ts
+      localStorage.setItem("user_data", JSON.stringify(data.user));
 
       // Redirect ke halaman utama
-      router.push("/main-Page")
+      router.push("/main-Page");
     } catch (err: any) {
-      setError(err.message || "Login gagal, silakan coba lagi.")
+      setError(err.message || "Login gagal, silakan coba lagi.");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <Card className="w-[360px] h-full relative">
@@ -114,19 +125,37 @@ export function LoginCard() {
 
             <div className="flex items-center w-full">
               <div className="flex-grow border-t border-gray-300"></div>
-              <span className="mx-2 text-sm text-gray-500">Or Sign In with</span>
+              <span className="mx-2 text-sm text-gray-500">
+                Or Sign In with
+              </span>
               <div className="flex-grow border-t border-gray-300"></div>
             </div>
 
             <div className="flex gap-4">
-              <button type="button" className="p-2 rounded-full border hover:bg-gray-100">
-                <Image src="/assets/icons/google.png" alt="Google" width={32} height={32} />
+              <button
+                type="button"
+                className="p-2 rounded-full border hover:bg-gray-100"
+              >
+                <Image
+                  src="/assets/icons/google.png"
+                  alt="Google"
+                  width={32}
+                  height={32}
+                />
               </button>
-              <button type="button" className="p-2 rounded-full border hover:bg-gray-100">
-                <Image src="/assets/icons/github.png" alt="GitHub" width={32} height={32} />
+              <button
+                type="button"
+                className="p-2 rounded-full border hover:bg-gray-100"
+              >
+                <Image
+                  src="/assets/icons/github.png"
+                  alt="GitHub"
+                  width={32}
+                  height={32}
+                />
               </button>
             </div>
-            
+
             <div className="text-sm text-gray-500">
               Don&apos;t have Account?{" "}
               <a href="/register" className="text-blue-600 hover:underline">
@@ -137,5 +166,5 @@ export function LoginCard() {
         </form>
       </CardContent>
     </Card>
-  )
+  );
 }

@@ -1,76 +1,101 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { useRouter } from "next/navigation"
-import { Input } from "@/components/atoms/ui/input"
-import { Label } from "@/components/atoms/ui/label"
-import { Button } from "@/components/atoms/ui/button"
-import { Checkbox } from "@/components/atoms/ui/checkbox"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/ui/select"
-import { Alert, AlertDescription, AlertTitle } from "../../molecules/alert/alert"
-import { XCircle, Eye, EyeOff } from "lucide-react"
-import { apiClient } from "@/services/api"
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Input } from "@/components/atoms/ui/input";
+import { Label } from "@/components/atoms/ui/label";
+import { Button } from "@/components/atoms/ui/button";
+import { Checkbox } from "@/components/atoms/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/atoms/ui/select";
+import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
+} from "../../molecules/alert/alert";
+import { XCircle, Eye, EyeOff } from "lucide-react";
+import { apiClient } from "@/services/api";
 
 export function RegisterForm() {
-  const router = useRouter()
-  const [email, setEmail] = useState("")
-  const [fullName, setFullName] = useState("")
-  const [division, setDivision] = useState("")
-  const [angkatan, setAngkatan] = useState<number | "">("")
-  const [password, setPassword] = useState("")
-  const [confirmPassword, setConfirmPassword] = useState("")
-  const [showPassword, setShowPassword] = useState(false)
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false)
-  const [agreeToTerms, setAgreeToTerms] = useState(false)
-  const [error, setError] = useState("")
-  const [loading, setLoading] = useState(false)
+  const router = useRouter();
+  const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
+  const [division_id, setDivision] = useState("");
+  const [angkatan, setAngkatan] = useState<number | "">("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [agreeToTerms, setAgreeToTerms] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError("")
+    e.preventDefault();
+    setError("");
 
-    if (!email || !fullName || !division || !angkatan || !password || !confirmPassword) {
-      setError("Semua field wajib diisi")
-      return
+    if (
+      !email ||
+      !fullName ||
+      !division_id ||
+      !angkatan ||
+      !password ||
+      !confirmPassword
+    ) {
+      setError("Semua field wajib diisi");
+      return;
     }
-    
+
     if (password.length < 6) {
-      setError("Password harus minimal 6 karakter")
-      return
+      setError("Password harus minimal 6 karakter");
+      return;
     }
-    
+
     if (password !== confirmPassword) {
-      setError("Konfirmasi password tidak sesuai")
-      return
+      setError("Konfirmasi password tidak sesuai");
+      return;
     }
 
     if (!agreeToTerms) {
-      setError("Anda harus menyetujui syarat & ketentuan")
-      return
+      setError("Anda harus menyetujui syarat & ketentuan");
+      return;
     }
 
     try {
-      setLoading(true)
-      const response = await apiClient.register({ 
-        email, 
-        password, 
+      setLoading(true);
+      const divisionNameMap: Record<string, string> = {
+        uiux: "UI/UX",
+        frontend: "Frontend",
+        backend: "Backend",
+        devops: "DevOps",
+      };
+      const canonicalDivisionName = divisionNameMap[division_id] || division_id;
+      const response = await apiClient.register({
+        email,
+        password,
         full_name: fullName,
-        division,
-        angkatan
-      })
-      
+        division_id: canonicalDivisionName, // send canonical text to match backend's FK (type text)
+        division_name: canonicalDivisionName,
+        angkatan,
+      });
+
       if (response.success) {
-        router.push("/login")
+        router.push("/login");
       } else {
-        setError(response.error || "Register gagal")
+        setError(response.error || "Register gagal");
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : "Register gagal"
-      setError(message)
+      const message = err instanceof Error ? err.message : "Register gagal";
+      setError(message);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
@@ -98,22 +123,25 @@ export function RegisterForm() {
 
       <div className="space-y-1.5">
         <Label htmlFor="division">Divisi</Label>
-        <Select value={division} onValueChange={setDivision}>
+        <Select value={division_id} onValueChange={setDivision}>
           <SelectTrigger>
             <SelectValue placeholder="Divisi" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="frontend">Frontend</SelectItem>
             <SelectItem value="backend">Backend</SelectItem>
-            <SelectItem value="DevOps">Devops</SelectItem>
-            <SelectItem value="ui-ux">UI/UX</SelectItem>
+            <SelectItem value="devops">DevOps</SelectItem>
+            <SelectItem value="uiux">UI/UX</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-1.5">
         <Label htmlFor="angkatan">Angkatan</Label>
-        <Select value={angkatan.toString()} onValueChange={(value) => setAngkatan(parseInt(value))}>
+        <Select
+          value={angkatan.toString()}
+          onValueChange={(value) => setAngkatan(parseInt(value))}
+        >
           <SelectTrigger>
             <SelectValue placeholder="Angkatan" />
           </SelectTrigger>
@@ -207,5 +235,5 @@ export function RegisterForm() {
         {loading ? "Creating Account..." : "Create Account"}
       </Button>
     </form>
-  )
+  );
 }

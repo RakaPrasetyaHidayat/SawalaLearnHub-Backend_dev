@@ -1,114 +1,122 @@
-"use client"
-import React, { useState } from 'react'
-import Post from '../post/post'
-import InputPost from '@/components/molecules/inputs/input-post/input-post'
+"use client";
+import React, { useEffect, useState } from "react";
+import Post from "../post/post";
+import InputPost from "@/components/molecules/inputs/input-post/input-post";
+import {
+  listPosts,
+  createPost,
+  toggleLike,
+  PostItem,
+} from "@/services/postsService";
 
 interface PostData {
-  id: string
+  id: string;
   user: {
-    name: string
-    avatar: string
-  }
-  content: string
+    name: string;
+    avatar: string;
+  };
+  content: string;
   file?: {
-    name: string
-    type: 'image' | 'document'
-  }
-  timestamp: string
-  likes: number
-  comments: number
+    name: string;
+    type: "image" | "document";
+  };
+  timestamp: string;
+  likes: number;
+  comments: number;
+}
+
+function mapItemToPostData(item: PostItem): PostData {
+  const date = new Date(item.createdAt);
+  const timestamp = date.toLocaleString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  });
+  return {
+    id: item.id,
+    user: { name: item.userName, avatar: item.userAvatar },
+    content: item.content,
+    file: item.file
+      ? { name: item.file.name, type: item.file.type }
+      : undefined,
+    timestamp,
+    likes: item.likes,
+    comments: item.comments,
+  };
 }
 
 export default function PostFeed() {
-  const [posts, setPosts] = useState<PostData[]>([
-    {
-      id: '1',
-      user: {
-        name: 'bimo_fikry',
-        avatar: '/assets/icons/profile.png' // You'll need to add this image
-      },
-      content: 'Kehidupan itu seperti user journey penuh tikungan, bug, dan kadang error 404. Tapi tetap bisa diarahkan ke tujuan.',
-      file: {
-        name: 'photo.jpg',
-        type: 'image'
-      },
-      timestamp: '12:10 AM Oct 30,2025',
-      likes: 200000,
-      comments: 123000
-    },
-    {
-      id: '2',
-      user: {
-        name: 'bimo_fikry',
-        avatar: '/assets/images/avatar1.jpg'
-      },
-      content: 'Kehidupan itu seperti user journey penuh tikungan, bug, dan kadang error 404. Tapi tetap bisa diarahkan ke tujuan.',
-      timestamp: '12:10 AM Oct 30,2025',
-      likes: 200000,
-      comments: 123000
-    },
-    {
-      id: '3',
-      user: {
-        name: 'bimo_fikry',
-        avatar: '/assets/images/avatar1.jpg'
-      },
-      content: 'Kehidupan itu seperti user journey penuh tikungan, bug, dan kadang error 404. Tapi tetap bisa diarahkan ke tujuan.',
-      timestamp: '12:10 AM Oct 30,2025',
-      likes: 200000,
-      comments: 123000
+  const [posts, setPosts] = useState<PostData[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true);
+        const { items } = await listPosts({ page: 1, limit: 10 });
+        setPosts(items.map(mapItemToPostData));
+      } catch (e) {
+        console.error("Failed to load posts", e);
+        setError("Failed to load posts");
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, []);
+
+  const handleCreatePost = async ({
+    text,
+  }: {
+    text: string;
+    file?: File | null;
+  }) => {
+    if (!text.trim()) return;
+    try {
+      const created = await createPost({ content: text.trim() });
+      setPosts((prev) => [mapItemToPostData(created), ...prev]);
+    } catch (e) {
+      console.error("Failed to create post", e);
+      // Optional: show toast/error UI
     }
-  ])
+  };
 
-  const handleCreatePost = ({ text, file }: { text: string; file?: File | null }) => {
-    const newPost: PostData = {
-      id: Date.now().toString(),
-      user: {
-        name: 'bimo_fikry',
-        avatar: '/assets/images/avatar1.jpg'
-      },
-      content: text,
-      file: file ? {
-        name: file.name,
-        type: file.type.startsWith('image/') ? 'image' : 'document'
-      } : undefined,
-      timestamp: new Date().toLocaleString('en-US', {
-        hour: 'numeric',
-        minute: '2-digit',
-        hour12: true,
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric'
-      }),
-      likes: 0,
-      comments: 0
-    }
-
-    setPosts(prev => [newPost, ...prev])
-  }
-
-  const handleLike = (postId: string, isLiked: boolean) => {
-    setPosts(prev => prev.map(post =>
-      post.id === postId
-        ? { ...post, likes: isLiked ? post.likes + 1 : post.likes - 1 }
-        : post
-    ))
-  }
+  const handleLike = async (postId: string, isLiked: boolean) => {
+    setPosts((prev) =>
+      prev.map((post) =>
+        post.id === postId
+          ? {
+              ...post,
+              likes: Math.max(0, isLiked ? post.likes + 1 : post.likes - 1),
+            }
+          : post
+      )
+    );
+    // Try toggling like on server (best-effort)
+    toggleLike(postId).catch((e) => console.warn("toggleLike failed", e));
+  };
 
   const handleComment = (postId: string) => {
-    // Handle comment functionality
-    console.log('Comment on post:', postId)
-  }
+    console.log("Comment on post:", postId);
+  };
 
   return (
     <div className="space-y-4">
-  {/* Input postingan baru */}
-  {/* Hanya satu input field untuk postingan baru, hapus duplikat jika ada */}
-  <InputPost onSubmit={handleCreatePost} />
+      <InputPost onSubmit={handleCreatePost} />
 
-      {/* Posts Feed */}
+      {loading && (
+        <div className="text-center text-gray-500">Loading posts...</div>
+      )}
+      {error && !loading && (
+        <div className="text-center text-red-500">{error}</div>
+      )}
+
       <div className="space-y-4 mt-3">
-        {posts.map(post => (
+        {posts.map((post) => (
           <Post
             key={post.id}
             id={post.id}
@@ -121,10 +129,11 @@ export default function PostFeed() {
             onLike={handleLike}
             onComment={handleComment}
           />
-
         ))}
-        {/* Form Create Post */}
+        {!loading && !error && posts.length === 0 && (
+          <div className="text-center text-gray-500">No posts found.</div>
+        )}
       </div>
     </div>
-  )
+  );
 }

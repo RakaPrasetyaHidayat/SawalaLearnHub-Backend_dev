@@ -55,7 +55,7 @@ export async function registerUser(data: {
   name: string;
   email: string;
   password: string;
-  division: string;
+  division_id?: string;
   angkatan: number;
 }) {
   return apiFetcher<AuthResponse>("/api/auth/register", {

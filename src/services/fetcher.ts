@@ -2,7 +2,10 @@
 export function getAuthToken(): string | null {
   if (typeof window === "undefined") return null;
   const token =
-    localStorage.getItem("auth_token") || sessionStorage.getItem("auth_token");
+    localStorage.getItem("auth_token") ||
+    sessionStorage.getItem("auth_token") ||
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("token");
   console.log("Retrieved auth token:", token);
   return token;
 }
@@ -47,33 +50,54 @@ export async function apiFetcher<T>(
   console.log("Using token:", token);
 
   try {
-    const res = await fetch(`${baseUrl}${endpoint}`, {
+    const url = `${baseUrl}${endpoint}`;
+    const res = await fetch(url, {
       headers,
       ...options,
     });
 
     if (!res.ok) {
+      const contentType = res.headers.get("content-type") || "";
+      let rawBody: any = null;
+      let bodyText = "";
+      try {
+        if (contentType.includes("application/json")) {
+          rawBody = await res.json().catch(() => null);
+        } else {
+          bodyText = await res.text().catch(() => "");
+        }
+      } catch {}
+
+      const backendMsg =
+        (rawBody && (rawBody.message || rawBody.error)) ||
+        bodyText ||
+        res.statusText;
+
       if (res.status === 401) {
         removeAuthToken();
-        console.error("Authentication failed.");
-        if (typeof window !== "undefined") {
-          const p = window.location.pathname || "";
-          if (!p.startsWith("/login") && !p.startsWith("/register")) {
-            // Only redirect on protected pages to avoid flicker on login/register
-            // window.location.href = "/login";
-          }
-        }
-        throw new Error("Unauthorized");
+        console.error("Authentication failed:", backendMsg);
+        throw new Error(
+          `Authentication required. ${backendMsg || "Please log in again."}`
+        );
       }
-      throw new Error(`API Error: ${res.status} ${res.statusText}`);
+
+      const detail =
+        typeof backendMsg === "string"
+          ? backendMsg.slice(0, 500)
+          : res.statusText;
+      throw new Error(`API Error ${res.status}: ${detail}`);
+    }
+
+    if (res.status === 204) {
+      // No Content
+      return null as unknown as T;
     }
 
     return res.json();
-  } catch (error) {
+  } catch (error: any) {
     console.error("Fetch error:", error);
-    throw new Error(
-      "Failed to fetch data. Please check your network connection or contact support."
-    );
+    // Preserve original error message to aid debugging
+    throw new Error(error?.message || "Network error while calling API");
   }
 }
 

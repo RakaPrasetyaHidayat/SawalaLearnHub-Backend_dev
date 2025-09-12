@@ -14,7 +14,7 @@ export default function RootLayout({
     children: React.ReactNode;
 }>) {
     return (
-        <div className="justify-center items-center flex w-full h-full relative">
+        <div className="justify-center items-center flex w-full relative">
             <div className="justify-center items-center flex h-full relative border-2 w-[350px] max-[340px]:w-full">
                 <div className="w-full h-full relative pb-16 ">
                     {children}

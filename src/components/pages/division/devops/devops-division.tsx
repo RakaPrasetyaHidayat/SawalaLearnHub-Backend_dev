@@ -9,9 +9,9 @@ import TaskCard from "@/components/molecules/cards/task-card/task-card";
 import { Resource as Resources } from "@/components/organisms/resources/resources";
 import { useDivisionMembers } from "@/hooks/useDivisionMembers";
 
-export default function FrontendDivision({
+export default function DevOpsDivision({
   imageSrc = "/assets/images/download.png",
-  imageAlt = "Frontend Division Landing Preview",
+  imageAlt = "DevOps Division Landing Preview",
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -23,7 +23,7 @@ export default function FrontendDivision({
   ];
 
   const yearParam = searchParams.get("year") || undefined;
-  const { members, loading, error } = useDivisionMembers("frontend", yearParam);
+  const { members, loading, error } = useDivisionMembers("devops", yearParam);
 
   const peopleSection = useMemo(() => {
     if (loading)
@@ -49,7 +49,7 @@ export default function FrontendDivision({
           <UserCard
             key={m.id}
             username={m.username}
-            division="Frontend Developer"
+            division="DevOps Engineer"
             school={m.school}
             avatarSrc={m.avatarSrc}
           />
@@ -86,7 +86,7 @@ export default function FrontendDivision({
           <div className="mt-4 space-y-3">
             <TaskCard
               status="submitted"
-              title="Frontend Component Development"
+              title="CI/CD Pipeline Setup"
               deadline="14 Aug 2024, 18:00"
               statusIcons={{ submitted: "/assets/icons/submitted.png" }}
               onViewDetail={() =>
@@ -95,7 +95,7 @@ export default function FrontendDivision({
             />
             <TaskCard
               status="revision"
-              title="Responsive Design Implementation"
+              title="Kubernetes Deployment"
               deadline="14 Aug 2024, 18:00"
               unread
               statusIcons={{ revision: "/assets/icons/revisi.png" }}
@@ -106,7 +106,12 @@ export default function FrontendDivision({
           </div>
         )}
 
-        {tab === "resources" && <Resources />}
+        {tab === "resources" && (
+          <Resources
+            divisionId={"0e5c4601-d68a-45d0-961f-b11e0472a71b"}
+            year={yearParam || undefined}
+          />
+        )}
       </div>
     </div>
   );

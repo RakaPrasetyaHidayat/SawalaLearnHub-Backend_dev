@@ -1,26 +1,62 @@
-"use client"
+"use client";
 
-import Image from 'next/image'
-import { useState } from 'react'
-import { useRouter } from 'next/navigation'
-import NavigationBar from '@/components/molecules/navigationbar/navigationbar'
-import UserCard from '@/components/molecules/cards/user-card/user-card'
-import TaskCard from '@/components/molecules/cards/task-card/task-card'
-// import { ResourcesHeader } from '@/components/molecules/cards/resources/resource-header'
-// import ResourceCard from '@/components/molecules/cards/resources/resource-card'
-import { Resource as Resources } from '@/components/organisms/resources/resources'
+import Image from "next/image";
+import { useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import NavigationBar from "@/components/molecules/navigationbar/navigationbar";
+import UserCard from "@/components/molecules/cards/user-card/user-card";
+import TaskCard from "@/components/molecules/cards/task-card/task-card";
+import { Resource as Resources } from "@/components/organisms/resources/resources";
+import { useDivisionMembers } from "@/hooks/useDivisionMembers";
 
 export default function UiUxSection({
-  imageSrc = '/assets/images/download.png',
-  imageAlt = 'UI/UX Landing Preview',
+  imageSrc = "/assets/images/download.png",
+  imageAlt = "UI/UX Landing Preview",
 }) {
-  const router = useRouter()
-  const [tab, setTab] = useState('people')
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [tab, setTab] = useState("people");
   const items = [
-    { key: 'people', label: 'People' },
-    { key: 'tasks', label: 'Tasks' },
-    { key: 'resources', label: 'Resources' },
-  ]
+    { key: "people", label: "People" },
+    { key: "tasks", label: "Tasks" },
+    { key: "resources", label: "Resources" },
+  ];
+
+  const yearParam = searchParams.get("year") || undefined;
+  const { members, loading, error } = useDivisionMembers("uiux", yearParam);
+
+  const peopleSection = useMemo(() => {
+    if (loading)
+      return (
+        <div className="mt-4 text-sm text-gray-600">Loading members...</div>
+      );
+    if (error)
+      return (
+        <div className="mt-4 text-sm text-red-600">
+          Failed to load members: {error}
+        </div>
+      );
+    if (!members.length)
+      return (
+        <div className="mt-4 text-sm text-gray-600">
+          Tidak ada member untuk tahun ini.
+        </div>
+      );
+
+    return (
+      <div className="mt-4 space-y-3">
+        {members.map((m) => (
+          <UserCard
+            key={m.id}
+            username={m.username}
+            division="UI/UX Designer"
+            school={m.school}
+            avatarSrc={m.avatarSrc}
+          />
+        ))}
+      </div>
+    );
+  }, [loading, error, members]);
 
   return (
     <div className="w-full relative">
@@ -37,52 +73,49 @@ export default function UiUxSection({
           </div>
         </div>
 
-        <NavigationBar items={items} value={tab} onChange={setTab} className="mt-4" />
+        <NavigationBar
+          items={items}
+          value={tab}
+          onChange={setTab}
+          className="mt-4"
+        />
 
-        {tab === 'people' && (
-          <div className="mt-4 space-y-3">
-            {/* Dummy list; later replace with data from API/DB */}
-            <UserCard username="bimo_fikry" division="UI UX designer" school="SMKN 1 Sumedang" />
-            <UserCard username="siti_ayu" division="Frontend Dev" school="SMKN 2 Bandung" />
-            <UserCard username="andre_t" division="Backend Dev" school="SMKN 1 Cimahi" />
-            <UserCard username="andre_t" division="Backend Dev" school="SMKN 1 Cimahi" />
-            <UserCard username="andre_t" division="Backend Dev" school="SMKN 1 Cimahi" />
-          </div>
-        )}
+        {tab === "people" && peopleSection}
 
-        {tab === 'tasks' && (
+        {tab === "tasks" && (
           <div className="mt-4 space-y-3">
-            {/* Dummy tasks list with status icons */}
             <TaskCard
               status="submitted"
               title="Pre Test 1 for All Intern"
               deadline="14 Aug 2024, 18:00"
-              statusIcons={{ submitted: '/assets/icons/submitted.png' }}
-              onViewDetail={() => router.push('/main-Page/about/division-of/detail-task')}
+              statusIcons={{ submitted: "/assets/icons/submitted.png" }}
+              onViewDetail={() =>
+                router.push("/main-Page/about/division-of/detail-task")
+              }
             />
             <TaskCard
               status="revision"
               title="Pre Test 1 for All Intern"
               deadline="14 Aug 2024, 18:00"
               unread
-              statusIcons={{ revision: '/assets/icons/revisi.png' }}
-              onViewDetail={() => router.push('/main-Page/about/division-of/detail-task')}
+              statusIcons={{ revision: "/assets/icons/revisi.png" }}
+              onViewDetail={() =>
+                router.push("/main-Page/about/division-of/detail-task")
+              }
             />
             <TaskCard
               status="approved"
               title="Pre Test 1 for All Intern"
               deadline="14 Aug 2024, 18:00"
-              statusIcons={{ approved: '/assets/icons/approved.png' }}
-              onViewDetail={() => router.push('/main-Page/about/division-of/detail-task')}
+              statusIcons={{ approved: "/assets/icons/approved.png" }}
+              onViewDetail={() =>
+                router.push("/main-Page/about/division-of/detail-task")
+              }
             />
           </div>
         )}
-        {tab === 'resources' && (
-          <Resources />
-        )}
+        {tab === "resources" && <Resources />}
       </div>
     </div>
-  )
+  );
 }
-
-
