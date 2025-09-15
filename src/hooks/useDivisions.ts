@@ -12,7 +12,7 @@ export interface UseDivisionsResult {
 /**
  * Custom hook to fetch divisions with member count
  */
-export function useDivisions(year: string): UseDivisionsResult {
+export function useDivisions(year: string, status: string = 'approved'): UseDivisionsResult {
   const [divisions, setDivisions] = useState<Division[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -28,13 +28,13 @@ export function useDivisions(year: string): UseDivisionsResult {
       
       console.log(`Fetching divisions for year: ${year}`)
       
-      const divisionsData = await DivisionService.getDivisionsWithMemberCount(year)
+      const divisionsData = await DivisionService.getDivisionsWithMemberCount(year, status)
       
       // Handle "All Division" special case - get total count
       const updatedDivisions = await Promise.all(
         divisionsData.map(async (division) => {
           if (division.id === 'all') {
-            const totalCount = await DivisionService.getTotalMemberCount(year)
+            const totalCount = await DivisionService.getTotalMemberCount(year, status)
             return {
               ...division,
               memberCount: totalCount
@@ -73,7 +73,7 @@ export function useDivisions(year: string): UseDivisionsResult {
     if (year) {
       fetchDivisions()
     }
-  }, [year])
+  }, [year, status])
 
   const refetch = async () => {
     setRetryCount(0)

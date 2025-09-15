@@ -1,4 +1,4 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { FrontendDivision } from "@/components/pages/division/frontend";
 import { BackendDivision } from "@/components/pages/division/backend";
 import { UiUxSection } from "@/components/pages/division/ui-ux";
@@ -44,7 +44,17 @@ export default async function DivisionDynamicPage({
   return (
     <div className="justify-center items-center h-full">
       <DivisionHeader />
-      <div className="space-y-3 p-4">{content}</div>
+      <div className="space-y-3 p-4">
+        <Suspense
+          fallback={
+            <div className="mt-4 text-sm text-gray-600">
+              Loading division...
+            </div>
+          }
+        >
+          {content}
+        </Suspense>
+      </div>
     </div>
   );
 }

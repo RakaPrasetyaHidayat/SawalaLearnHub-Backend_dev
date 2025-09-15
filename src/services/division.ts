@@ -27,7 +27,10 @@ export class DivisionService {
   /**
    * Get all divisions with member count for a specific year
    */
-  static async getDivisionsWithMemberCount(year: string): Promise<Division[]> {
+  static async getDivisionsWithMemberCount(
+    year: string,
+    status: string = "approved"
+  ): Promise<Division[]> {
     try {
       // Get all divisions first (you might need to create this endpoint)
       const divisions = await this.getAllDivisions();
@@ -37,7 +40,8 @@ export class DivisionService {
         divisions.map(async (division) => {
           const memberCount = await this.getDivisionMemberCount(
             division.id,
-            year
+            year,
+            status
           );
           return {
             ...division,
@@ -56,92 +60,166 @@ export class DivisionService {
 
   /**
    * Get real member count from database API using proper authentication
+   * Enhanced: try server-side filtering with query params (year, status, division) first,
+   * then fallback to client-side filtering if needed.
    */
   private static async getRealMemberCount(
     divisionId: string,
-    year: string
+    year: string,
+    status: string = "approved"
   ): Promise<number> {
     try {
-      // Extract year number from formatted year string (e.g., "intern-of-sawala-2025" -> "2025")
-      const yearMatch = year.match(/intern-of-sawala-(\d{4})/);
-      const yearNumber = yearMatch
-        ? parseInt(yearMatch[1])
-        : new Date().getFullYear();
+      // Extract year number from input. Support both "intern-of-sawala-2025" and plain "2025".
+      let yearNumber: number;
+      const formattedMatch = year.match(/intern-of-sawala-(\d{4})/);
+      if (formattedMatch) {
+        yearNumber = parseInt(formattedMatch[1], 10);
+      } else if (/^\d{4}$/.test(year)) {
+        yearNumber = parseInt(year, 10);
+      } else {
+        const anyMatch = year.match(/(\d{4})/);
+        yearNumber = anyMatch
+          ? parseInt(anyMatch[1], 10)
+          : new Date().getFullYear();
+      }
+
+      // Default status filter (can be adjusted later to be configurable)
+      const preferredStatus = status || "approved";
 
       console.log(
         `Fetching real data for division ${divisionId}, year ${yearNumber}`
       );
 
-      let endpoint: string;
-      let data: any;
+      // Helper to safely extract count from various response shapes
+      const extractCount = (resp: any): number | undefined => {
+        if (!resp) return undefined;
+        const count = resp?.data?.count ?? resp?.count;
+        if (typeof count === "number") return count;
+        // If API returns array without count
+        if (Array.isArray(resp?.data?.users)) return resp.data.users.length;
+        if (Array.isArray(resp?.users)) return resp.users.length;
+        if (Array.isArray(resp?.data)) return resp.data.length;
+        if (Array.isArray(resp)) return resp.length;
+        return undefined;
+      };
 
+      // 1) Try server-side filtered count via division endpoint (with year & status)
+      const candidatesMap: Record<string, string[]> = {
+        uiux: ["uiux", "UI/UX", "UI/UX Designer", "ui-ux", "uiux-designer"],
+        frontend: ["frontend", "Frontend", "Frontend Dev", "frontend-dev"],
+        backend: ["backend", "Backend", "Backend Dev", "backend-dev"],
+        devops: ["0e5c4601-d68a-45d0-961f-b11e0472a71b", "devops", "DevOps"],
+      };
+      const divisionUuidMap: Record<string, string | undefined> = {
+        uiux: process.env.NEXT_PUBLIC_DIVISION_UIUX_ID,
+        frontend: process.env.NEXT_PUBLIC_DIVISION_FRONTEND_ID,
+        backend: process.env.NEXT_PUBLIC_DIVISION_BACKEND_ID,
+        devops: process.env.NEXT_PUBLIC_DIVISION_DEVOPS_ID,
+      };
+      const envUuid = divisionUuidMap[divisionId];
+      const candidates =
+        divisionId === "all"
+          ? ["all"]
+          : [
+              ...(candidatesMap[divisionId] || [divisionId]),
+              ...(envUuid ? [envUuid] : []),
+            ];
+
+      let data: any | undefined;
+
+      // For 'all' division, fetch all users and filter client-side
       if (divisionId === "all") {
-        // For "all" division, get all users and filter by year
-        endpoint = "/api/users";
-        console.log(`Fetching all users from: ${endpoint}`);
-        data = await apiFetcher<any>(endpoint);
+        try {
+          const url = `/api/users/all`;
+          const resp = await apiFetcher<any>(url);
+          const cnt = extractCount(resp);
+          if (typeof cnt === "number") {
+            // We cannot trust server count for year filtering; fallback to client-side filtering below
+            // So pass through to client-side by attaching resp to data
+          }
+          // Use this response as data for client-side filtering
+          data = resp;
+          // Continue to client-side filtering below using the fallback path
+        } catch (_) {
+          /* continue to fallback */
+        }
       } else {
-        // For specific division, try multiple possible identifiers that the backend might accept
-        const candidatesMap: Record<string, string[]> = {
-          uiux: ["uiux", "UI/UX", "UI/UX Designer", "ui-ux", "uiux-designer"],
-          frontend: ["frontend", "Frontend", "Frontend Dev", "frontend-dev"],
-          backend: ["backend", "Backend", "Backend Dev", "backend-dev"],
-          devops: ["devops", "DevOps"],
-        };
-        const candidates = candidatesMap[divisionId] || [divisionId];
-
-        let lastResp: any = null;
-        for (const cand of candidates) {
-          endpoint = `/api/users/division/${encodeURIComponent(cand)}`;
-          console.log(`Fetching division users from: ${endpoint}`);
-          const resp = await apiFetcher<any>(endpoint);
-
-          // Quick peek for non-empty before full extraction below
-          const quickUsers = Array.isArray(resp)
-            ? resp
-            : Array.isArray(resp?.data)
-            ? resp.data
-            : Array.isArray(resp?.users)
-            ? resp.users
-            : [];
-
-          lastResp = resp;
-          if (quickUsers.length > 0) {
-            data = resp;
-            break;
+        // Try each candidate on the division endpoint first, but ONLY for UUID candidates
+        const uuidRe =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        const uuidCandidates = candidates.filter((c) => uuidRe.test(c));
+        for (const cand of uuidCandidates) {
+          try {
+            const url = `/api/users/division/${encodeURIComponent(cand)}`;
+            const resp = await apiFetcher<any>(url);
+            const cnt = extractCount(resp);
+            if (typeof cnt === "number") return cnt;
+          } catch (_) {
+            // Try next candidate
           }
         }
 
-        // If none returned non-empty, use the last response for normal handling
-        if (typeof data === "undefined") {
-          data = lastResp;
+        // If division endpoint did not return count, try fetching all users (admin) and filter client-side
+        try {
+          const url = `/api/users/all`;
+          const resp = await apiFetcher<any>(url);
+          data = resp; // use this for client-side filtering below
+        } catch (_) {
+          // As a last resort, try paginated users without unsupported params
+          try {
+            const url = `/api/users?limit=1000&status=${encodeURIComponent(
+              preferredStatus
+            )}`;
+            const resp = await apiFetcher<any>(url);
+            data = resp;
+          } catch (_) {
+            // give up to client-side generic fetch
+          }
         }
       }
 
-      console.log(`Raw API data for division ${divisionId}:`, data);
-
-      let users: any[] = [];
-
-      // Handle different response formats
-      if (data.success && Array.isArray(data.data)) {
-        users = data.data;
-      } else if (Array.isArray(data)) {
-        users = data;
-      } else if (data.users && Array.isArray(data.users)) {
-        users = data.users;
-      } else if (data.data && Array.isArray(data.data)) {
-        users = data.data;
-      } else {
-        console.warn(
-          `Unexpected data format for division ${divisionId}:`,
-          data
-        );
-        return 0;
+      // 2) Fallback: fetch users and filter client-side (legacy logic)
+      if (!data) {
+        const endpoint = "/api/users";
+        data = await apiFetcher<any>(endpoint);
       }
 
-      // Filter users by year (angkatan) and approved status
+      // Extract user arrays from various possible shapes
+      const tryExtractArray = (obj: any): any[] | null => {
+        if (!obj || typeof obj !== "object") return null;
+        if (Array.isArray(obj)) return obj;
+        if (Array.isArray(obj.data)) return obj.data;
+        if (Array.isArray(obj.users)) return obj.users;
+        if (Array.isArray(obj?.data?.data)) return obj.data.data;
+        if (Array.isArray(obj?.data?.users)) return obj.data.users;
+        if (Array.isArray(obj.payload)) return obj.payload;
+        if (Array.isArray(obj.result)) return obj.result;
+        const firstArray = Object.values(obj).find((v) => Array.isArray(v)) as
+          | any[]
+          | undefined;
+        return firstArray || null;
+      };
+
+      const users = tryExtractArray(data) || [];
+
+      const normalize = (s: string) =>
+        String(s)
+          .toLowerCase()
+          .replace(/[^a-z0-9]/g, "")
+          .replace(/designer|dev|developer/g, "");
+      const divIdNorm = normalize(divisionId);
+
+      const allowedStatuses = new Set([
+        "approved",
+        "active",
+        "accepted",
+        "verified",
+      ]);
+
+      const targetStatus = (preferredStatus || "").toString().toLowerCase();
+      const matchAnyStatus = targetStatus === "all" || targetStatus === "";
+
       const filteredUsers = users.filter((user: any) => {
-        // Prefer various possible year fields from backend
         const userYearRaw =
           user.angkatan ??
           user.channel_year ??
@@ -149,46 +227,73 @@ export class DivisionService {
           user.tahun ??
           user.batch;
         const userYearNum = Number.parseInt(String(userYearRaw), 10);
-        const userStatus = String(user.status ?? "approved").toLowerCase();
-        const rawDivision = (
-          user.division ??
-          user.division_name ??
-          user.divisionName ??
-          user.division_id ??
-          user.divisionId ??
-          ""
-        ).toString();
 
-        // Normalize to comparable slug-like string
-        const normalize = (s: string) =>
-          s
-            .toLowerCase()
-            .replace(/[^a-z0-9]/g, "") // remove spaces, slashes, hyphens
-            .replace(/designer|dev|developer/g, ""); // strip suffixes
+        // Build candidate division strings from multiple fields (support nested and alt keys)
+        const nameCandidatesRaw = [
+          user.division,
+          user.division_name,
+          user.divisionName,
+          user.role,
+          user.role_name,
+          user.department,
+          user.team,
+          user.divisionTitle,
+          user.divisi,
+          user.bidang,
+          user.section,
+          user.position,
+          user?.division?.name,
+          user?.division?.title,
+          user?.division?.slug,
+        ];
+        const idCandidatesRaw = [
+          user.division_id,
+          user.divisionId,
+          user.division_uuid,
+          user.divisionUuid,
+          user?.division?.id,
+          user?.division?.uuid,
+          user?.division?.division_id,
+        ];
+        const divisionNameCandidates = nameCandidatesRaw
+          .filter(Boolean)
+          .map((v: any) => normalize(v));
+        const rawUuidCandidates = idCandidatesRaw
+          .filter(Boolean)
+          .map((v: any) => String(v).toLowerCase());
 
-        const userDivNorm = normalize(rawDivision);
+        // Prefer exact UUID match when available (division_id in DB vs env UUID)
+        const uuidMatch =
+          !!envUuid && rawUuidCandidates.includes(envUuid.toLowerCase());
 
-        // For "all" division, just filter by year and status
-        if (divisionId === "all") {
-          return userYearNum === yearNumber && userStatus === "approved";
-        }
+        const divisionMatch =
+          divisionId === "all" ||
+          uuidMatch ||
+          divisionNameCandidates.some(
+            (cand: string) =>
+              cand === divIdNorm ||
+              cand.includes(divIdNorm) ||
+              divIdNorm.includes(cand)
+          );
 
-        const divIdNorm = normalize(divisionId);
-        return (
-          userYearNum === yearNumber &&
-          userStatus === "approved" &&
-          userDivNorm === divIdNorm
-        );
+        // Status matching: either any status, or exact match if provided
+        const rawStatus = (user.status ?? "").toString().toLowerCase();
+        const normalizedStatus = allowedStatuses.has(rawStatus)
+          ? rawStatus
+          : rawStatus; // keep as is if unknown
+        const statusOk = matchAnyStatus || normalizedStatus === targetStatus;
+
+        return userYearNum === yearNumber && divisionMatch && statusOk;
       });
 
       console.log(
-        `Filtered users for division ${divisionId}, year ${yearNumber}:`,
+        `Filtered (fallback) users for division ${divisionId}, year ${yearNumber}:`,
         {
           totalUsers: users.length,
           filteredCount: filteredUsers.length,
           targetYear: yearNumber,
           hasToken: !!getAuthToken(),
-          sampleUser: users[0], // Log first user for debugging
+          sampleUser: users[0],
         }
       );
 
@@ -199,13 +304,11 @@ export class DivisionService {
         error
       );
 
-      // If it's an authentication error, provide helpful message
       if (
         error instanceof Error &&
         error.message.includes("Authentication required")
       ) {
         console.warn("API requires authentication. User needs to log in.");
-        // You might want to redirect to login or show a login prompt here
       }
 
       return 0;
@@ -217,15 +320,16 @@ export class DivisionService {
    */
   static async getDivisionMemberCount(
     divisionId: string,
-    year: string
+    year: string,
+    status: string = "approved"
   ): Promise<number> {
     console.log(
       `Fetching member count for division ${divisionId}, year ${year}`
     );
 
     try {
-      // Use the new real data method
-      const count = await this.getRealMemberCount(divisionId, year);
+      // Use the new real data method with status filter
+      const count = await this.getRealMemberCount(divisionId, year, status);
       console.log(
         `Successfully fetched real data for division ${divisionId}: ${count} members`
       );
@@ -329,20 +433,14 @@ export class DivisionService {
   /**
    * Get total member count across all divisions for a specific year
    */
-  static async getTotalMemberCount(year: string): Promise<number> {
+  static async getTotalMemberCount(
+    year: string,
+    status: string = "approved"
+  ): Promise<number> {
     try {
-      const divisions = await this.getAllDivisions();
-      let totalCount = 0;
-
-      for (const division of divisions) {
-        if (division.id !== "all") {
-          // Skip 'all' division to avoid double counting
-          const count = await this.getDivisionMemberCount(division.id, year);
-          totalCount += count;
-        }
-      }
-
-      return totalCount;
+      // Use the same real-data path with divisionId = 'all' so we count exactly what the UI will filter
+      const total = await this.getRealMemberCount("all", year, status);
+      return total;
     } catch (error) {
       const apiError = ApiErrorHandler.handleError(error);
       console.error("Error fetching total member count:", apiError);
@@ -386,31 +484,57 @@ export class DivisionService {
           uiux: ["uiux", "UI/UX", "UI/UX Designer", "ui-ux", "uiux-designer"],
           frontend: ["frontend", "Frontend", "Frontend Dev", "frontend-dev"],
           backend: ["backend", "Backend", "Backend Dev", "backend-dev"],
-          devops: ["devops", "DevOps"],
+          devops: ["0e5c4601-d68a-45d0-961f-b11e0472a71b", "devops", "DevOps"],
         };
-        const candidates = candidatesMap[divisionId] || [divisionId];
+        const divisionUuidMap: Record<string, string | undefined> = {
+          uiux: process.env.NEXT_PUBLIC_DIVISION_UIUX_ID,
+          frontend: process.env.NEXT_PUBLIC_DIVISION_FRONTEND_ID,
+          backend: process.env.NEXT_PUBLIC_DIVISION_BACKEND_ID,
+          devops: process.env.NEXT_PUBLIC_DIVISION_DEVOPS_ID,
+        };
+        const envUuid = divisionUuidMap[divisionId];
+        const candidates = [
+          ...(candidatesMap[divisionId] || [divisionId]),
+          ...(envUuid ? [envUuid] : []),
+        ];
+
+        // Only call division endpoint when candidate is a UUID. Otherwise, backend returns 400.
+        const uuidRe =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+        const uuidCandidates = candidates.filter((c) => uuidRe.test(c));
 
         let lastResp: any = null;
-        for (const cand of candidates) {
-          endpoint = `/api/users/division/${encodeURIComponent(cand)}`;
-          const resp = await apiFetcher<any>(endpoint);
+        if (uuidCandidates.length > 0) {
+          for (const cand of uuidCandidates) {
+            endpoint = `/api/users/division/${encodeURIComponent(cand)}`;
+            let resp: any = null;
+            try {
+              resp = await apiFetcher<any>(endpoint);
+            } catch (e) {
+              // Ignore backend validation error and try next candidate
+              continue;
+            }
 
-          const quickUsers = Array.isArray(resp)
-            ? resp
-            : Array.isArray(resp?.data)
-            ? resp.data
-            : Array.isArray(resp?.users)
-            ? resp.users
-            : [];
+            const quickUsers = Array.isArray(resp)
+              ? resp
+              : Array.isArray(resp?.data)
+              ? resp.data
+              : Array.isArray(resp?.users)
+              ? resp.users
+              : [];
 
-          lastResp = resp;
-          if (quickUsers.length > 0) {
-            data = resp;
-            break;
+            lastResp = resp;
+            if (quickUsers.length > 0) {
+              data = resp;
+              break;
+            }
           }
         }
+
+        // If no UUID candidates or no non-empty result, fetch all users and filter client-side
         if (typeof data === "undefined") {
-          data = lastResp;
+          endpoint = "/api/users";
+          data = await apiFetcher<any>(endpoint);
         }
       }
 
@@ -425,15 +549,15 @@ export class DivisionService {
         users = data.data;
       }
 
-      const normalize = (s: string) =>
-        s
+      const normalize = (s: any) =>
+        String(s)
           .toLowerCase()
           .replace(/[^a-z0-9]/g, "")
           .replace(/designer|dev|developer/g, "");
 
       const divIdNorm = normalize(divisionId);
 
-      const filteredUsers = users.filter((user: any) => {
+      let filteredUsers = users.filter((user: any) => {
         const userYearRaw =
           user.angkatan ??
           user.channel_year ??
@@ -441,44 +565,173 @@ export class DivisionService {
           user.tahun ??
           user.batch;
         const userYearNum = Number.parseInt(String(userYearRaw), 10);
-        const userStatus = String(user.status ?? "approved").toLowerCase();
+
+        // Accept missing/unknown status; allow common approved synonyms
+        const rawStatus = (user.status ?? "").toString().toLowerCase();
+        const statusOk =
+          !rawStatus ||
+          ["approved", "active", "accepted", "verified"].includes(rawStatus);
 
         if (divisionId === "all") {
-          return userYearNum === yearNumber && userStatus === "approved";
+          return userYearNum === yearNumber && statusOk;
         }
 
-        const rawDivision = (
-          user.division ??
-          user.division_name ??
-          user.divisionName ??
-          user.division_id ??
-          user.divisionId ??
-          ""
-        ).toString();
-        const userDivNorm = normalize(rawDivision);
+        // Build candidate division strings (names and IDs)
+        const nameCandidatesRaw = [
+          user.division,
+          user.division_name,
+          user.divisionName,
+          user.role,
+          user.role_name,
+          user.department,
+          user.team,
+          user?.division?.name,
+        ];
+        const idCandidatesRaw = [
+          user.division_id,
+          user.divisionId,
+          user.division_uuid,
+          user.divisionUuid,
+          user?.division?.id,
+          user?.division?.uuid,
+        ];
 
-        return (
-          userYearNum === yearNumber &&
-          userStatus === "approved" &&
-          userDivNorm === divIdNorm
+        const divisionNameCandidates = nameCandidatesRaw
+          .filter(Boolean)
+          .map((v: any) => normalize(v));
+        const rawUuidCandidates = idCandidatesRaw
+          .filter(Boolean)
+          .map((v: any) => String(v).toLowerCase());
+        const uuidCandidatesNormalized = rawUuidCandidates.map((v) =>
+          v.replace(/-/g, "")
         );
+
+        // Prefer exact UUID match against env mapping
+        const divisionUuidMap: Record<string, string | undefined> = {
+          uiux: process.env.NEXT_PUBLIC_DIVISION_UIUX_ID,
+          frontend: process.env.NEXT_PUBLIC_DIVISION_FRONTEND_ID,
+          backend: process.env.NEXT_PUBLIC_DIVISION_BACKEND_ID,
+          devops: process.env.NEXT_PUBLIC_DIVISION_DEVOPS_ID,
+        };
+        const envUuid = divisionUuidMap[divisionId];
+        const uuidMatch =
+          !!envUuid && rawUuidCandidates.includes(envUuid.toLowerCase());
+
+        const divisionMatch =
+          uuidMatch ||
+          divisionId === "all" ||
+          divisionNameCandidates.some(
+            (cand: string) =>
+              cand === divIdNorm ||
+              cand.includes(divIdNorm) ||
+              divIdNorm.includes(cand)
+          ) ||
+          // If divisionId itself is a UUID, compare normalized UUIDs
+          uuidCandidatesNormalized.includes(divIdNorm);
+
+        return userYearNum === yearNumber && divisionMatch && statusOk;
       });
 
+      // Fallback: if no results for this year, show members by division regardless of year
+      if (filteredUsers.length === 0 && divisionId !== "all") {
+        filteredUsers = users.filter((user: any) => {
+          const rawStatus = (user.status ?? "").toString().toLowerCase();
+          const statusOk =
+            !rawStatus ||
+            ["approved", "active", "accepted", "verified"].includes(rawStatus);
+
+          const nameCandidatesRaw = [
+            user.division,
+            user.division_name,
+            user.divisionName,
+            user.role,
+            user.role_name,
+            user.department,
+            user.team,
+            user?.division?.name,
+          ];
+          const idCandidatesRaw = [
+            user.division_id,
+            user.divisionId,
+            user.division_uuid,
+            user.divisionUuid,
+            user?.division?.id,
+            user?.division?.uuid,
+          ];
+          const divisionNameCandidates = nameCandidatesRaw
+            .filter(Boolean)
+            .map((v: any) => normalize(v));
+          const rawUuidCandidates = idCandidatesRaw
+            .filter(Boolean)
+            .map((v: any) => String(v).toLowerCase());
+          const uuidCandidatesNormalized = rawUuidCandidates.map((v) =>
+            v.replace(/-/g, "")
+          );
+
+          const divisionUuidMap: Record<string, string | undefined> = {
+            uiux: process.env.NEXT_PUBLIC_DIVISION_UIUX_ID,
+            frontend: process.env.NEXT_PUBLIC_DIVISION_FRONTEND_ID,
+            backend: process.env.NEXT_PUBLIC_DIVISION_BACKEND_ID,
+            devops: process.env.NEXT_PUBLIC_DIVISION_DEVOPS_ID,
+          };
+          const envUuid = divisionUuidMap[divisionId];
+          const uuidMatch =
+            !!envUuid && rawUuidCandidates.includes(envUuid.toLowerCase());
+
+          const divisionMatch =
+            uuidMatch ||
+            divisionId === "all" ||
+            divisionNameCandidates.some(
+              (cand: string) =>
+                cand === divIdNorm ||
+                cand.includes(divIdNorm) ||
+                divIdNorm.includes(cand)
+            ) ||
+            uuidCandidatesNormalized.includes(divIdNorm);
+
+          return divisionMatch && statusOk;
+        });
+      }
+
       // Map to UI-friendly shape
-      const normalizedMembers = filteredUsers.map((u: any) => ({
-        id: u?.id ?? u?._id ?? "",
-        email: u?.email ?? "",
-        username:
-          u?.username ??
-          u?.full_name ??
-          u?.name ??
-          (typeof u?.email === "string" ? u.email.split("@")[0] : "User"),
-        full_name: u?.full_name ?? u?.name,
-        division: u?.division ?? u?.division_id ?? u?.role ?? divisionId,
-        angkatan: u?.angkatan ?? u?.channel_year,
-        school: u?.school_name ?? u?.school ?? u?.sekolah ?? "",
-        avatarSrc: u?.avatarSrc ?? u?.avatar ?? u?.image ?? undefined,
-      }));
+      const friendlyNameByUuid: Record<string, string> = {
+        [(process.env.NEXT_PUBLIC_DIVISION_UIUX_ID || "").toLowerCase()]:
+          "UI/UX Designer",
+        [(process.env.NEXT_PUBLIC_DIVISION_FRONTEND_ID || "").toLowerCase()]:
+          "Frontend Dev",
+        [(process.env.NEXT_PUBLIC_DIVISION_BACKEND_ID || "").toLowerCase()]:
+          "Backend Dev",
+        [(process.env.NEXT_PUBLIC_DIVISION_DEVOPS_ID || "").toLowerCase()]:
+          "DevOps",
+        uiux: "UI/UX Designer",
+        frontend: "Frontend Dev",
+        backend: "Backend Dev",
+        devops: "DevOps",
+      };
+
+      const normalizedMembers = filteredUsers.map((u: any) => {
+        const rawDiv = u?.division_id ?? u?.division ?? "";
+        const divKey = String(rawDiv).toLowerCase();
+        const divisionLabel =
+          friendlyNameByUuid[divKey] ||
+          u?.division_name ||
+          u?.division ||
+          divisionId;
+        return {
+          id: u?.id ?? u?._id ?? "",
+          email: u?.email ?? "",
+          username:
+            u?.username ??
+            u?.full_name ??
+            u?.name ??
+            (typeof u?.email === "string" ? u.email.split("@")[0] : "User"),
+          full_name: u?.full_name ?? u?.name,
+          division: divisionLabel,
+          angkatan: u?.angkatan ?? u?.channel_year,
+          school: u?.school_name ?? u?.school ?? u?.sekolah ?? "",
+          avatarSrc: u?.avatarSrc ?? u?.avatar ?? u?.image ?? undefined,
+        };
+      });
 
       return normalizedMembers;
     } catch (error) {

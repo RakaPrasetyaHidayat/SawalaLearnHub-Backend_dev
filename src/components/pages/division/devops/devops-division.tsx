@@ -8,6 +8,7 @@ import UserCard from "@/components/molecules/cards/user-card/user-card";
 import TaskCard from "@/components/molecules/cards/task-card/task-card";
 import { Resource as Resources } from "@/components/organisms/resources/resources";
 import { useDivisionMembers } from "@/hooks/useDivisionMembers";
+import { useDivisionTasks } from "@/hooks/useDivisionTasks";
 
 export default function DevOpsDivision({
   imageSrc = "/assets/images/download.png",
@@ -24,6 +25,11 @@ export default function DevOpsDivision({
 
   const yearParam = searchParams.get("year") || undefined;
   const { members, loading, error } = useDivisionMembers("devops", yearParam);
+  const {
+    tasks,
+    loading: tasksLoading,
+    error: tasksError,
+  } = useDivisionTasks("devops", yearParam);
 
   const peopleSection = useMemo(() => {
     if (loading)
