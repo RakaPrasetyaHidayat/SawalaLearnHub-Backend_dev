@@ -69,25 +69,31 @@ export class DivisionService {
     status: string = "approved"
   ): Promise<number> {
     try {
-      // Extract year number from input. Support both "intern-of-sawala-2025" and plain "2025".
-      let yearNumber: number;
-      const formattedMatch = year.match(/intern-of-sawala-(\d{4})/);
-      if (formattedMatch) {
-        yearNumber = parseInt(formattedMatch[1], 10);
-      } else if (/^\d{4}$/.test(year)) {
-        yearNumber = parseInt(year, 10);
-      } else {
-        const anyMatch = year.match(/(\d{4})/);
-        yearNumber = anyMatch
-          ? parseInt(anyMatch[1], 10)
-          : new Date().getFullYear();
+      // Extract year or allow 'all' to disable year filter
+      const yearArg = String(year || "").trim();
+      const anyYear = /^all$/i.test(yearArg);
+      let yearNumber: number | null = null;
+      if (!anyYear) {
+        const formattedMatch = yearArg.match(/intern-of-sawala-(\d{4})/);
+        if (formattedMatch) {
+          yearNumber = parseInt(formattedMatch[1], 10);
+        } else if (/^\d{4}$/.test(yearArg)) {
+          yearNumber = parseInt(yearArg, 10);
+        } else {
+          const anyMatch = yearArg.match(/(\d{4})/);
+          yearNumber = anyMatch
+            ? parseInt(anyMatch[1], 10)
+            : new Date().getFullYear();
+        }
       }
 
       // Default status filter (can be adjusted later to be configurable)
       const preferredStatus = status || "approved";
 
       console.log(
-        `Fetching real data for division ${divisionId}, year ${yearNumber}`
+        `Fetching real data for division ${divisionId}, year ${
+          anyYear ? "all" : yearNumber
+        }`
       );
 
       // Helper to safely extract count from various response shapes
@@ -283,7 +289,9 @@ export class DivisionService {
           : rawStatus; // keep as is if unknown
         const statusOk = matchAnyStatus || normalizedStatus === targetStatus;
 
-        return userYearNum === yearNumber && divisionMatch && statusOk;
+        return (
+          (anyYear || userYearNum === yearNumber) && divisionMatch && statusOk
+        );
       });
 
       console.log(
@@ -467,18 +475,39 @@ export class DivisionService {
     }>
   > {
     try {
-      // Extract year number
-      const yearMatch = year.match(/intern-of-sawala-(\d{4})/);
-      const yearNumber = yearMatch
-        ? parseInt(yearMatch[1])
-        : new Date().getFullYear();
+      // Extract year, allow 'all' to disable year filter
+      const yearArg = String(year || "").trim();
+      const anyYear = /^all$/i.test(yearArg);
+      let yearNumber: number | null = null;
+      if (!anyYear) {
+        const yearMatch = yearArg.match(/intern-of-sawala-(\d{4})/);
+        yearNumber = yearMatch
+          ? parseInt(yearMatch[1], 10)
+          : /^\d{4}$/.test(yearArg)
+          ? parseInt(yearArg, 10)
+          : (() => {
+              const m = yearArg.match(/(\d{4})/);
+              return m ? parseInt(m[1], 10) : new Date().getFullYear();
+            })();
+      }
 
       let endpoint: string = "";
       let data: any;
 
       if (divisionId === "all") {
-        endpoint = "/api/users";
-        data = await apiFetcher<any>(endpoint);
+        // Prefer full users listing first, then fallback to paginated endpoint
+        try {
+          endpoint = "/api/users/all";
+          data = await apiFetcher<any>(endpoint);
+        } catch (e) {
+          try {
+            endpoint = "/api/users?limit=1000";
+            data = await apiFetcher<any>(endpoint);
+          } catch (_) {
+            endpoint = "/api/users";
+            data = await apiFetcher<any>(endpoint);
+          }
+        }
       } else {
         const candidatesMap: Record<string, string[]> = {
           uiux: ["uiux", "UI/UX", "UI/UX Designer", "ui-ux", "uiux-designer"],
@@ -573,7 +602,7 @@ export class DivisionService {
           ["approved", "active", "accepted", "verified"].includes(rawStatus);
 
         if (divisionId === "all") {
-          return userYearNum === yearNumber && statusOk;
+          return (anyYear || userYearNum === yearNumber) && statusOk;
         }
 
         // Build candidate division strings (names and IDs)

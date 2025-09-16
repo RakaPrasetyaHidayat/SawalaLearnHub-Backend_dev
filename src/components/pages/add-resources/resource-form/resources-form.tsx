@@ -84,16 +84,23 @@ export function ResourcesForm() {
       const token = getAuthToken();
       let res: Response;
 
+      // Use multipart only when a file is included; otherwise send JSON
       if (resourcesData.file) {
-        // If there's a file, use multipart/form-data
         const formData = new FormData();
         formData.append("title", resourcesData.title.trim());
         formData.append("description", resourcesData.description.trim());
-        formData.append("url", resourcesData.url.trim());
+        const normalizedUrl = resourcesData.url.trim();
+        formData.append("url", normalizedUrl);
         formData.append("type", resourcesData.type);
         formData.append("file", resourcesData.file);
         if (divisionId) formData.append("division_id", divisionId);
-        if (year) formData.append("year", year);
+        if (year) {
+          const yearNum = Number(year);
+          formData.append(
+            "year",
+            Number.isFinite(yearNum) ? String(yearNum) : year
+          );
+        }
 
         res = await fetch("/api/resources", {
           method: "POST",
@@ -101,15 +108,16 @@ export function ResourcesForm() {
           body: formData,
         });
       } else {
-        // If no file, send JSON (many backends prefer JSON for pure metadata)
+        const normalizedUrl = resourcesData.url.trim();
         const payload: Record<string, any> = {
           title: resourcesData.title.trim(),
           description: resourcesData.description.trim(),
-          url: resourcesData.url.trim(),
+          url: normalizedUrl,
           type: resourcesData.type,
         };
         if (divisionId) payload.division_id = divisionId;
-        if (year) payload.year = year;
+        if (year)
+          payload.year = Number.isFinite(Number(year)) ? Number(year) : year;
 
         res = await fetch("/api/resources", {
           method: "POST",

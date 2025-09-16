@@ -8,6 +8,7 @@ import UserCard from "@/components/molecules/cards/user-card/user-card";
 import TaskCard from "@/components/molecules/cards/task-card/task-card";
 import { Resource as Resources } from "@/components/organisms/resources/resources";
 import { useDivisionMembers } from "@/hooks/useDivisionMembers";
+import { useDivisionTasks } from "@/hooks/useDivisionTasks";
 
 export default function BackendDivision({
   imageSrc = "/assets/images/download.png",
@@ -24,6 +25,11 @@ export default function BackendDivision({
 
   const yearParam = searchParams.get("year") || undefined;
   const { members, loading, error } = useDivisionMembers("backend", yearParam);
+  const {
+    tasks,
+    loading: tasksLoading,
+    error: tasksError,
+  } = useDivisionTasks("backend", yearParam);
 
   const peopleSection = useMemo(() => {
     if (loading)
@@ -84,25 +90,38 @@ export default function BackendDivision({
 
         {tab === "tasks" && (
           <div className="mt-4 space-y-3">
-            <TaskCard
-              status="submitted"
-              title="Backend API Development"
-              deadline="14 Aug 2024, 18:00"
-              statusIcons={{ submitted: "/assets/icons/submitted.png" }}
-              onViewDetail={() =>
-                router.push("/main-Page/about/division-of/detail-task")
-              }
-            />
-            <TaskCard
-              status="revision"
-              title="Database Schema Design"
-              deadline="14 Aug 2024, 18:00"
-              unread
-              statusIcons={{ revision: "/assets/icons/revisi.png" }}
-              onViewDetail={() =>
-                router.push("/main-Page/about/division-of/detail-task")
-              }
-            />
+            {tasksLoading && (
+              <div className="text-sm text-gray-600">Loading tasks...</div>
+            )}
+            {tasksError && (
+              <div className="text-sm text-red-600">
+                Failed to load tasks: {tasksError}
+              </div>
+            )}
+            {!tasksLoading && !tasksError && tasks.length === 0 && (
+              <div className="text-sm text-gray-600">
+                Tidak ada tugas untuk tahun ini.
+              </div>
+            )}
+            {!tasksLoading &&
+              !tasksError &&
+              tasks.map((t) => (
+                <TaskCard
+                  key={t.id}
+                  status={t.status}
+                  title={t.title}
+                  deadline={t.deadline}
+                  unread={t.unread}
+                  statusIcons={{
+                    submitted: "/assets/icons/submitted.png",
+                    revision: "/assets/icons/revisi.png",
+                    approved: "/assets/icons/approved.png",
+                  }}
+                  onViewDetail={() =>
+                    router.push("/main-Page/about/division-of/detail-task")
+                  }
+                />
+              ))}
           </div>
         )}
 

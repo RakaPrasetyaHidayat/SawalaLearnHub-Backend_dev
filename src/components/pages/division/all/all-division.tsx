@@ -10,9 +10,9 @@ import { Resource as Resources } from "@/components/organisms/resources/resource
 import { useDivisionMembers } from "@/hooks/useDivisionMembers";
 import { useDivisionTasks } from "@/hooks/useDivisionTasks";
 
-export default function FrontendDivision({
+export default function AllDivision({
   imageSrc = "/assets/images/download.png",
-  imageAlt = "Frontend Division Landing Preview",
+  imageAlt = "All Division Landing Preview",
 }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -24,12 +24,12 @@ export default function FrontendDivision({
   ];
 
   const yearParam = searchParams.get("year") || undefined;
-  const { members, loading, error } = useDivisionMembers("frontend", yearParam);
+  const { members, loading, error } = useDivisionMembers("all", yearParam);
   const {
     tasks,
     loading: tasksLoading,
     error: tasksError,
-  } = useDivisionTasks("frontend", yearParam);
+  } = useDivisionTasks("all", yearParam);
 
   const peopleSection = useMemo(() => {
     if (loading)
@@ -55,7 +55,7 @@ export default function FrontendDivision({
           <UserCard
             key={m.id}
             username={m.username}
-            division="Frontend Developer"
+            division={m.division || "Member"}
             school={m.school}
             avatarSrc={m.avatarSrc}
           />

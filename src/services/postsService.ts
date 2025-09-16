@@ -147,15 +147,102 @@ export async function listPosts(params?: {
   const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
   if (search) qs.append("search", search);
 
-  const res = await apiFetcher<any>(`/api/posts/list?${qs}`);
+  // Try common list endpoints
+  const candidates = [
+    `/api/posts/list?${qs}`,
+    `/api/posts?${qs}`,
+    `/api/post?${qs}`,
+  ];
+  for (const url of candidates) {
+    try {
+      const res = await apiFetcher<any>(url);
+      const normalized = normalizePosts(res);
+      if (normalized.items.length) return normalized;
+      // if empty but structure looks right, return anyway
+      if (Array.isArray((res as any)?.data) || Array.isArray(res as any))
+        return normalized;
+    } catch {}
+  }
+
+  // Fallback: return empty
+  return { items: [], meta: { from: "fallback" } };
+}
+
+// Get minimal current user info
+export async function getCurrentUserBasic(): Promise<{
+  id: string;
+  name: string;
+  username?: string;
+  email?: string;
+}> {
+  const raw = await apiFetcher<any>(`/api/auth/me`);
+  const data =
+    raw && typeof raw === "object" && "data" in raw ? (raw as any).data : raw;
+  const id = String(data?.id ?? data?._id ?? "");
+  const name =
+    data?.name ||
+    data?.username ||
+    data?.full_name ||
+    (typeof data?.email === "string" ? data.email.split("@")[0] : "User") ||
+    "User";
+  return { id, name, username: data?.username, email: data?.email };
+}
+
+// Try to list only posts created by the current user
+export async function listMyPosts(params?: { page?: number; limit?: number }) {
+  const me = await getCurrentUserBasic();
+  const page = params?.page ?? 1;
+  const limit = params?.limit ?? 20;
+  const qs = new URLSearchParams({ page: String(page), limit: String(limit) });
+
+  // 1) Use confirmed endpoint first
   try {
-    console.log("Posts list raw response:", res);
-  } catch {}
-  const normalized = normalizePosts(res);
-  try {
-    console.log("Normalized posts count:", normalized.items.length);
-  } catch {}
-  return normalized;
+    const res = await apiFetcher<any>(
+      `/api/posts/user/${encodeURIComponent(me.id)}?${qs}`
+    );
+    return normalizePosts(res);
+  } catch (e) {
+    // ignore and try next strategies
+  }
+
+  // 2) Try common dedicated endpoints
+  const candidateEndpoints = [
+    `/api/posts/my`,
+    `/api/posts/me`,
+    `/api/my/posts`,
+  ];
+  for (const ep of candidateEndpoints) {
+    try {
+      const res = await apiFetcher<any>(ep);
+      const normalized = normalizePosts(res);
+      if (normalized.items.length) return normalized;
+    } catch (e) {
+      // ignore 404s or other errors, continue to next strategy
+    }
+  }
+
+  // 3) Try user-filtered endpoints if backend supports query/path filters
+  const userCandidates = [
+    `/api/posts?userId=${encodeURIComponent(me.id)}&${qs}`,
+    `/api/posts/list?userId=${encodeURIComponent(me.id)}&${qs}`,
+    `/api/users/${encodeURIComponent(me.id)}/posts?${qs}`,
+  ];
+  for (const url of userCandidates) {
+    try {
+      const res = await apiFetcher<any>(url);
+      const normalized = normalizePosts(res);
+      return normalized; // even if empty, it’s the correct endpoint
+    } catch (e) {
+      // ignore and try next
+    }
+  }
+
+  // 4) Fallback: filter general list by current user's name/username
+  const all = await listPosts({ page, limit });
+  const mine = all.items.filter(
+    (p) => p.userName === me.name || p.userName === me.username
+  );
+  return { items: mine, meta: { filteredFromAll: true, count: mine.length } };
 }
 
 // NOTE: This creates text-only posts. File upload usually requires multipart/form-data support.

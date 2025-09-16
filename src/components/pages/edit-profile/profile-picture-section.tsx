@@ -1,32 +1,55 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Pencil } from "lucide-react";
-import Image from 'next/image'
+import Image from "next/image";
+import { getCurrentUser } from "@/services/authService";
+import { getAuthState } from "@/utils/auth";
 
 export function ProfilePictureSection() {
+  const [profileImage, setProfileImage] = useState<string>("");
+
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const backend = await getCurrentUser();
+        let merged: any = backend || {};
+        try {
+          const local = (getAuthState()?.user as any) || null;
+          if (local) merged = { ...(backend || {}), ...local };
+        } catch {}
+        setProfileImage(
+          merged?.profile_image || merged?.profileImage || merged?.avatar || ""
+        );
+      } catch (e) {
+        console.error("Failed to load profile image:", e);
+      }
+    };
+    loadUser();
+  }, []);
+
   const handleEditPicture = () => {
-    // Here you would typically open file picker or camera
+    // TODO: Implement upload/change avatar
     console.log("Edit profile picture clicked");
   };
+
+  const src = profileImage || "/assets/images/profile-placeholder.jpg";
 
   return (
     <div className="relative">
       {/* Profile Picture */}
       <div className="w-[100px] h-[100px] rounded-full overflow-hidden bg-gray-200">
+        {/* Use next/image for optimization. If broken, user will still see gray bg */}
         <Image
-          src="/assets/images/profile-placeholder.jpg"
+          src={src}
           alt="Profile"
           className="w-full h-full object-cover"
           width={100}
           height={100}
-          unoptimized
-          onError={(e) => {
-            // Fallback jika gambar tidak ada
-            e.currentTarget.src = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%236B7280'%3E%3Cpath d='M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z'/%3E%3C/svg%3E";
-          }}
+          unoptimized={!!profileImage && !src.startsWith("/")}
         />
       </div>
-      
+
       {/* Edit Picture Button */}
       <button
         onClick={handleEditPicture}

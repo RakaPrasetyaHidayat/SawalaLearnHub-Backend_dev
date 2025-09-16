@@ -1,78 +1,40 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { ProfileHeader, ProfileMenuList, useProfileData } from "@/components/molecules/profile"
-import { useRouter } from "next/navigation"
+import { useState } from "react";
+import { ProfileHeader, ProfileMenuList } from "@/components/molecules/profile";
+import { useRouter } from "next/navigation";
+import { logout as performLogout } from "@/utils/auth";
 
 export default function ProfilePage() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const { profileData, isLoading: profileLoading, error } = useProfileData()
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
 
   const handleEditProfile = () => {
-    router.push("/main-Page/profile/edit-profile")
-  }
+    router.push("/main-Page/profile/edit-profile");
+  };
 
   const handleLogout = async () => {
     try {
-      setIsLoading(true)
-      
-      // TODO: Implementasi logout sesuai dengan sistem autentikasi yang digunakan
-      // Contoh: await signOut() atau clear localStorage/sessionStorage
-      
-      // Redirect ke halaman login
-      router.push("/login")
+      setIsLoading(true);
+      // Hapus token dan data user dari storage
+      await Promise.resolve(performLogout());
+      // Arahkan ke halaman login
+      router.push("/login");
     } catch (error) {
-      console.error("Logout error:", error)
+      console.error("Logout error:", error);
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Loading state */}
-      {profileLoading && (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading profile...</p>
-          </div>
-        </div>
-      )}
+      {/* Header menampilkan data akun yang sedang login (otomatis fetch dari /api/auth/me) */}
+      <ProfileHeader onEditProfile={handleEditProfile} />
 
-      {/* Error state */}
-      {error && (
-        <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <div className="text-center text-red-600">
-            <p className="mb-4">Failed to load profile: {error}</p>
-            <button 
-              onClick={() => window.location.reload()} 
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      )}
+      {/* Menu list */}
+      <ProfileMenuList onLogout={handleLogout} />
 
-      {/* Profile content */}
-      {!profileLoading && !error && (
-        <>
-          {/* Header dengan foto profil dan info user */}
-          <ProfileHeader
-            username={profileData.username}
-            role={profileData.role}
-            institution={profileData.institution}
-            profileImage={profileData.profileImage}
-            onEditProfile={handleEditProfile}
-          />
-          
-          {/* Menu list */}
-          <ProfileMenuList onLogout={handleLogout} />
-        </>
-      )}
-      
       {/* Loading overlay saat logout */}
       {isLoading && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
@@ -83,5 +45,5 @@ export default function ProfilePage() {
         </div>
       )}
     </div>
-  )
+  );
 }

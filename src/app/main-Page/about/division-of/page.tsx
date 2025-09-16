@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { Suspense } from "react";
-import { UiUxSection } from "@/components/pages/division/ui-ux";
+import { AllDivision } from "@/components/pages/division/all";
 import BackButton from "@/components/atoms/ui/back-button";
 
 export default function AboutIntern() {
@@ -28,7 +28,7 @@ export default function AboutIntern() {
             <div className="mt-4 text-sm text-gray-600">Loading...</div>
           }
         >
-          <UiUxSection />
+          <AllDivision />
         </Suspense>
       </div>
     </div>

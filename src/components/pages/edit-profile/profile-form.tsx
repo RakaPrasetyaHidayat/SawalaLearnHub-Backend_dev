@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Input } from "@/components/atoms/ui/input";
 import { Button } from "@/components/atoms/ui/button";
+import { getCurrentUser } from "@/services/authService";
+import { getAuthState } from "@/utils/auth";
 
 interface ProfileData {
   name: string;
@@ -17,17 +19,57 @@ export function ProfileForm() {
     school: "",
   });
 
+  // Prefill form with data shown in Profile Header
+  useEffect(() => {
+    const loadUser = async () => {
+      try {
+        const backend = await getCurrentUser();
+
+        // Merge backend with local auth state overrides (same strategy as ProfileHeader)
+        let merged: any = backend || {};
+        try {
+          const local = (getAuthState()?.user as any) || null;
+          if (local) merged = { ...(backend || {}), ...local };
+        } catch {}
+
+        setProfileData({
+          name:
+            merged?.name ||
+            merged?.username ||
+            merged?.full_name ||
+            (typeof merged?.email === "string"
+              ? merged.email.split("@")[0]
+              : "") ||
+            "",
+          division:
+            (typeof merged?.division === "object" && merged?.division?.name
+              ? merged.division.name
+              : merged?.division) ||
+            merged?.division_id ||
+            merged?.division_name ||
+            merged?.divisi ||
+            "",
+          school:
+            merged?.school_name || merged?.school || merged?.institution || "",
+        });
+      } catch (error) {
+        console.error("Failed to load user for edit profile:", error);
+      }
+    };
+
+    loadUser();
+  }, []);
+
   const handleInputChange = (field: keyof ProfileData, value: string) => {
-    setProfileData(prev => ({
+    setProfileData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
   const handleSave = () => {
-    // Here you would typically save to backend/database
+    // TODO: Integrate with backend update endpoint
     console.log("Saving profile:", profileData);
-    // For now, just show success message
     alert("Profile updated successfully!");
   };
 
@@ -35,9 +77,7 @@ export function ProfileForm() {
     <div className="space-y-6">
       {/* Name Field */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-900">
-          Name
-        </label>
+        <label className="text-sm font-medium text-gray-900">Name</label>
         <Input
           type="text"
           value={profileData.name}
@@ -49,9 +89,7 @@ export function ProfileForm() {
 
       {/* Division Field */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-900">
-          Division
-        </label>
+        <label className="text-sm font-medium text-gray-900">Division</label>
         <Input
           type="text"
           value={profileData.division}
@@ -63,9 +101,7 @@ export function ProfileForm() {
 
       {/* School Field */}
       <div className="space-y-2">
-        <label className="text-sm font-medium text-gray-900">
-          School
-        </label>
+        <label className="text-sm font-medium text-gray-900">School</label>
         <Input
           type="text"
           value={profileData.school}
@@ -77,7 +113,7 @@ export function ProfileForm() {
 
       {/* Save Button */}
       <div className="pt-4">
-        <Button 
+        <Button
           onClick={handleSave}
           className="w-full bg-blue-500 hover:bg-blue-600 text-white font-medium py-3 rounded-lg"
         >
@@ -87,4 +123,3 @@ export function ProfileForm() {
     </div>
   );
 }
-

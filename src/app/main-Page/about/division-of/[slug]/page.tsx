@@ -4,6 +4,7 @@ import { BackendDivision } from "@/components/pages/division/backend";
 import { UiUxSection } from "@/components/pages/division/ui-ux";
 import { DivisionHeader } from "@/components/client/division-header";
 import { DevOpsDivision } from "@/components/pages/division/devops";
+import { AllDivision } from "@/components/pages/division/all";
 
 // Helper to normalize slug/title into a stable key
 const normalizeToKey = (s: string) =>
@@ -34,6 +35,10 @@ export default async function DivisionDynamicPage({
       break;
     case "devops":
       content = <DevOpsDivision />;
+      break;
+    case "alldivision":
+    case "all":
+      content = <AllDivision />;
       break;
     default:
       content = (
