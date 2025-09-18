@@ -1,13 +1,17 @@
-"use client"
-import EntityCard from "@/components/molecules/cards/division-(years)/division-card"
-import { useRouter } from "next/navigation"
+"use client";
+import EntityCard from "@/components/molecules/cards/division-(years)/division-card";
+import { useRouter } from "next/navigation";
 
 export function Intern() {
-  const router = useRouter()
+  const router = useRouter();
 
   const handleCardClick = (year: string) => {
-    router.push(`/main-Page/about?year=${year}`)
-  }
+    const isAdminPath =
+      typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/admin");
+    const base = isAdminPath ? "/admin" : "/main-Page";
+    router.push(`${base}/about?year=${year}`);
+  };
 
   return (
     <>
@@ -57,5 +61,5 @@ export function Intern() {
         onClick={() => handleCardClick("2021")}
       />
     </>
-  )
+  );
 }

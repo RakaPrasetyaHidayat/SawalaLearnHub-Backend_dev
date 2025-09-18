@@ -1,49 +1,54 @@
-import { getAuthToken, setAuthToken, removeAuthToken } from '@/services/fetcher'
+import {
+  getAuthToken,
+  setAuthToken,
+  removeAuthToken,
+} from "@/services/fetcher";
 
 export interface User {
-  id: string
-  name: string
-  email: string
-  division?: string
-  angkatan?: number
+  id: string;
+  name: string;
+  email: string;
+  division?: string;
+  angkatan?: number;
+  role?: "admin" | "user";
 }
 
 export interface AuthState {
-  isAuthenticated: boolean
-  user: User | null
-  token: string | null
+  isAuthenticated: boolean;
+  user: User | null;
+  token: string | null;
 }
 
 /**
  * Check if user is currently authenticated
  */
 export function isAuthenticated(): boolean {
-  return !!getAuthToken()
+  return !!getAuthToken();
 }
 
 /**
  * Get current authentication state
  */
 export function getAuthState(): AuthState {
-  const token = getAuthToken()
-  
+  const token = getAuthToken();
+
   if (!token) {
     return {
       isAuthenticated: false,
       user: null,
-      token: null
-    }
+      token: null,
+    };
   }
 
   // Try to get user data from localStorage
-  let user: User | null = null
-  if (typeof window !== 'undefined') {
-    const userData = localStorage.getItem('user_data')
+  let user: User | null = null;
+  if (typeof window !== "undefined") {
+    const userData = localStorage.getItem("user_data");
     if (userData) {
       try {
-        user = JSON.parse(userData)
+        user = JSON.parse(userData);
       } catch (e) {
-        console.warn('Failed to parse user data from localStorage')
+        console.warn("Failed to parse user data from localStorage");
       }
     }
   }
@@ -51,48 +56,51 @@ export function getAuthState(): AuthState {
   return {
     isAuthenticated: true,
     user,
-    token
-  }
+    token,
+  };
 }
 
 /**
  * Login with email and password
  */
-export async function login(email: string, password: string): Promise<AuthState> {
+export async function login(
+  email: string,
+  password: string
+): Promise<AuthState> {
   try {
-    const response = await fetch('/api/_auth/login', {
-      method: 'GET',
+    const response = await fetch("/api/_auth/login", {
+      method: "GET",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
-    })
+    });
 
     if (!response.ok) {
-      throw new Error('Login failed')
+      throw new Error("Login failed");
     }
 
-    const data = await response.json()
-    console.log('Login response data:', data);
-    
+    const data = await response.json();
+    console.log("Login response data:", data);
+
     if (data.token && data.user) {
-      setAuthToken(data.token, true)
-      
+      setAuthToken(data.token, true);
+
       // Store user data
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('user_data', JSON.stringify(data.user))
+      if (typeof window !== "undefined") {
+        localStorage.setItem("user_data", JSON.stringify(data.user));
       }
-      
+
       return {
         isAuthenticated: true,
         user: data.user,
-        token: data.token
-      }
+        token: data.token,
+      };
     }
-    
-    throw new Error('Invalid response format')
+
+    throw new Error("Invalid response format");
   } catch (error) {
-    console.error('Login error:', error)
-    throw error
+    console.error("Login error:", error);
+    throw error;
   }
 }
 
@@ -100,9 +108,9 @@ export async function login(email: string, password: string): Promise<AuthState>
  * Logout user
  */
 export function logout(): void {
-  removeAuthToken()
-  if (typeof window !== 'undefined') {
-    localStorage.removeItem('user_data')
+  removeAuthToken();
+  if (typeof window !== "undefined") {
+    localStorage.removeItem("user_data");
   }
 }
 
@@ -110,6 +118,6 @@ export function logout(): void {
  * Check if user needs to authenticate for API access
  */
 export function requiresAuth(): boolean {
-  const authState = getAuthState()
-  return !authState.isAuthenticated
+  const authState = getAuthState();
+  return !authState.isAuthenticated;
 }

@@ -1,12 +1,16 @@
 import { apiFetcher } from "./fetcher";
 
+interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  role?: "admin" | "user";
+  [key: string]: any;
+}
+
 interface AuthResponse {
   token: string;
-  user: {
-    id: string;
-    name: string;
-    email: string;
-  };
+  user: AuthUser;
 }
 
 export async function loginUser(email: string, password: string) {
@@ -41,13 +45,33 @@ export async function loginUser(email: string, password: string) {
     raw?.data?.accessToken ??
     raw?.access_token ??
     raw?.data?.access_token;
-  const user =
+  const userRaw =
     raw?.user ?? raw?.data?.user ?? raw?.profile ?? raw?.data?.profile;
 
-  if (!token || !user) {
+  if (!token || !userRaw) {
     console.error("Unexpected login response:", raw);
     throw new Error("Login response invalid: token or user missing");
   }
+
+  // Derive role consistently
+  let role: "admin" | "user" | undefined;
+  const directRole = (userRaw.role || raw?.role || "").toString().toLowerCase();
+  const rolesArr: any[] = (userRaw.roles || raw?.roles || []) as any[];
+  const isAdminFlag = Boolean(
+    userRaw.isAdmin || userRaw.is_admin || raw?.isAdmin || raw?.is_admin
+  );
+
+  if (directRole === "admin") role = "admin";
+  else if (
+    Array.isArray(rolesArr) &&
+    rolesArr.some((r) => String(r).toLowerCase() === "admin")
+  )
+    role = "admin";
+  else if (isAdminFlag) role = "admin";
+  else role = "user";
+
+  const user: AuthUser = { ...userRaw, role };
+
   return { token, user } as AuthResponse;
 }
 

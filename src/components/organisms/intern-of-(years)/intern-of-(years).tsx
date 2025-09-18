@@ -33,8 +33,12 @@ export function InternOfYears({ year }: InternOfYearsProps) {
 
   const handleCardClick = (title: string) => {
     const slug = toSlug(title);
+    const isAdminPath =
+      typeof window !== "undefined" &&
+      window.location.pathname.startsWith("/admin");
+    const base = isAdminPath ? "/admin" : "/main-Page";
     router.push(
-      `/main-Page/about/division-of/${encodeURIComponent(
+      `${base}/about/division-of/${encodeURIComponent(
         slug
       )}?year=${encodeURIComponent(targetYear)}`
     );

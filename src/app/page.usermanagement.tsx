@@ -1,12 +1,11 @@
 "use client";
 
 import { UserManagementPage } from "@/components/pages/user-management";
-import Login from "./login/page";
 
 export default function UserManagementPreview() {
   return (
     <div className="min-h-screen bg-gray-50">
-      <Login />
+      <UserManagementPage />
     </div>
   );
 }

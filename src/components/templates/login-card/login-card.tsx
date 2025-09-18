@@ -51,8 +51,10 @@ export function LoginCard() {
       // Simpan user data konsisten dengan util auth.ts
       localStorage.setItem("user_data", JSON.stringify(data.user));
 
-      // Redirect ke halaman utama
-      router.push("/main-Page");
+      // Redirect sesuai role
+      const destination =
+        data?.user?.role === "admin" ? "/admin" : "/main-Page";
+      router.push(destination);
     } catch (err: any) {
       setError(err.message || "Login gagal, silakan coba lagi.");
     } finally {

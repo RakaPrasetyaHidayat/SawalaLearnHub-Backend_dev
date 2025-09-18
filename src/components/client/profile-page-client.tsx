@@ -1,26 +1,36 @@
-"use client"
+"use client";
 
-import { useState } from "react"
-import { ProfileHeader, ProfileMenuList, useProfileData } from "@/components/molecules/profile"
-import { useRouter } from "next/navigation"
+import { useState } from "react";
+import {
+  ProfileHeader,
+  ProfileMenuList,
+  useProfileData,
+} from "@/components/molecules/profile";
+import { useRouter } from "next/navigation";
 
 export default function ProfilePageClient() {
-  const router = useRouter()
-  const [isLoading, setIsLoading] = useState(false)
-  const { profileData, isLoading: profileLoading, error } = useProfileData()
+  const router = useRouter();
+  const [isLoading, setIsLoading] = useState(false);
+  const { profileData, isLoading: profileLoading, error } = useProfileData();
+
+  // Tentukan basePath dinamis: jika berada di /admin gunakan /admin/profile
+  const isAdminPath =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/admin");
+  const basePath = isAdminPath ? "/admin/profile" : "/main-Page/profile";
 
   const handleEditProfile = () => {
-    router.push("/main-Page/profile/edit-profile")
-  }
+    router.push(`${basePath}/edit-profile`);
+  };
 
   const handleLogout = async () => {
     try {
-      setIsLoading(true)
-      router.push("/login")
+      setIsLoading(true);
+      router.push("/login");
     } finally {
-      setIsLoading(false)
+      setIsLoading(false);
     }
-  }
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -37,8 +47,8 @@ export default function ProfilePageClient() {
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
           <div className="text-center text-red-600">
             <p className="mb-4">Failed to load profile: {error}</p>
-            <button 
-              onClick={() => window.location.reload()} 
+            <button
+              onClick={() => window.location.reload()}
               className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             >
               Retry
@@ -56,7 +66,7 @@ export default function ProfilePageClient() {
             profileImage={profileData.profileImage}
             onEditProfile={handleEditProfile}
           />
-          <ProfileMenuList onLogout={handleLogout} />
+          <ProfileMenuList onLogout={handleLogout} basePath={basePath} />
         </>
       )}
 
@@ -69,11 +79,5 @@ export default function ProfilePageClient() {
         </div>
       )}
     </div>
-  )
+  );
 }
-
-
-
-
-
-
