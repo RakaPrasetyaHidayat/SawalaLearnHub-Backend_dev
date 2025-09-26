@@ -1,120 +1,124 @@
 "use client";
 
 import { useParams, useRouter } from "next/navigation";
+import { useState, useEffect } from "react";
 import { UserDetail } from "@/components/molecules/user-detail";
-import { UserStatus } from "@/components/molecules/user-list-item/user-list-item";
-
-// Mock data - in a real app, this would come from an API
-const mockUsers = [
-  {
-    id: "1",
-    name: "Bimo Fikry",
-    email: "bimo@gmail.com",
-    role: "UI UX designer",
-    division: "UI/UX",
-    angkatan: "2025",
-    status: "Approved" as UserStatus,
-    avatarSrc: "https://i.pravatar.cc/150?img=1"
-  },
-  {
-    id: "2", 
-    name: "Raka",
-    email: "raka@gmail.com",
-    role: "UI UX designer", 
-    division: "UI/UX",
-    angkatan: "2025",
-    status: "Pending" as UserStatus,
-    avatarSrc: "https://i.pravatar.cc/150?img=2"
-  },
-  {
-    id: "3",
-    name: "Agnia Albaitsah",
-    email: "agnia@gmail.com", 
-    role: "UI UX designer",
-    division: "UI/UX", 
-    angkatan: "2024",
-    status: "Pending" as UserStatus,
-    avatarSrc: "https://i.pravatar.cc/150?img=3"
-  },
-  {
-    id: "4",
-    name: "Aufa Adilah", 
-    email: "aufa@gmail.com",
-    role: "UI UX designer",
-    division: "UI/UX",
-    angkatan: "2024", 
-    status: "Pending" as UserStatus,
-    avatarSrc: "https://i.pravatar.cc/150?img=4"
-  }
-];
+import { useAdminUsers } from "@/hooks/useAdminUsers";
+import { AdminUser } from "@/services/userService";
+import { Loader2 } from "lucide-react";
 
 export default function AdminUserDetailPage() {
   const params = useParams();
   const router = useRouter();
   const userId = params.id as string;
+  const { updateUserStatus, deleteUser } = useAdminUsers();
 
-  // Find the user by ID
-  const user = mockUsers.find(u => u.id === userId);
+  const [user, setUser] = useState<AdminUser | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
-  if (!user) {
+  useEffect(() => {
+    // In a real app, you'd fetch the user by ID
+    // For now, we'll simulate loading
+    const fetchUser = async () => {
+      try {
+        // This would be replaced with actual API call
+        // const userData = await fetchUserById(userId);
+        setLoading(false);
+        setError(
+          "User detail functionality needs to be implemented with actual API integration"
+        );
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load user");
+        setLoading(false);
+      }
+    };
+
+    fetchUser();
+  }, [userId]);
+
+  const handleBack = () => {
+    router.push("/admin/users");
+  };
+
+  const handleDelete = async () => {
+    if (!userId) return;
+
+    if (confirm("Are you sure you want to delete this user?")) {
+      try {
+        await deleteUser(userId);
+        router.push("/admin/users");
+      } catch (err) {
+        alert(
+          "Failed to delete user: " +
+            (err instanceof Error ? err.message : "Unknown error")
+        );
+      }
+    }
+  };
+
+  const handleStatusChange = async (newStatus: string) => {
+    if (!userId) return;
+
+    try {
+      await updateUserStatus(userId, newStatus);
+      setUser((prev) => (prev ? { ...prev, status: newStatus as any } : null));
+    } catch (err) {
+      alert(
+        "Failed to update user status: " +
+          (err instanceof Error ? err.message : "Unknown error")
+      );
+    }
+  };
+
+  const handleRoleChange = (newRole: string) => {
+    // This would be implemented when role update API is available
+    console.log("Role change to:", newRole);
+    setUser((prev) => (prev ? { ...prev, role: newRole } : null));
+  };
+
+  if (loading) {
     return (
-      <div className="w-full h-screen flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin" />
+      </div>
+    );
+  }
+
+  if (error || !user) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-lg font-semibold text-gray-900 mb-2">User Not Found</h2>
-          <p className="text-gray-600 mb-4">The user you're looking for doesn't exist.</p>
+          <h2 className="text-lg font-semibold text-gray-900 mb-2">
+            {error || "User not found"}
+          </h2>
           <button
-            onClick={() => router.push("/admin/users")}
-            className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            onClick={handleBack}
+            className="text-blue-600 hover:text-blue-800"
           >
-            Back to Users
+            Go back to users list
           </button>
         </div>
       </div>
     );
   }
 
-  const handleBack = () => {
-    router.push("/admin/users");
-  };
-
-  const handleApprove = () => {
-    // In a real app, this would make an API call
-    console.log("User approved:", user.name);
-    // You could show a success message here
-    alert(`${user.name} has been approved!`);
-  };
-
-  const handleReject = () => {
-    // In a real app, this would make an API call
-    console.log("User rejected:", user.name);
-    // You could show a confirmation dialog here
-    if (confirm(`Are you sure you want to reject ${user.name}?`)) {
-      alert(`${user.name} has been rejected.`);
-      router.push("/admin/users");
-    }
-  };
-
-  const handleRoleChange = (newRole: string) => {
-    // In a real app, this would make an API call
-    console.log("Role changed for", user.name, "to", newRole);
-    // You could show a success message here
-  };
-
   return (
-    <div className="w-full h-screen">
+    <div className="min-h-screen bg-gray-50">
       <UserDetail
         id={user.id}
         name={user.name}
         email={user.email}
         division={user.division}
-        angkatan={user.angkatan}
+        angkatan={user.angkatan?.toString() || ""}
         status={user.status}
         role={user.role}
         avatarSrc={user.avatarSrc}
         onBack={handleBack}
-        onApprove={handleApprove}
-        onReject={handleReject}
+        onDelete={handleDelete}
         onRoleChange={handleRoleChange}
+        onStatusChange={handleStatusChange}
+        isAdminView={true}
       />
     </div>
   );

@@ -1,0 +1,96 @@
+// Mock data fallback for when API is unavailable
+export const mockUsers = [
+  {
+    id: "1",
+    name: "John Doe",
+    email: "john.doe@example.com",
+    username: "johndoe",
+    full_name: "John Doe",
+    role: "intern",
+    division: "UI/UX Designer",
+    angkatan: 2025,
+    status: "Active",
+    avatarSrc: "https://i.pravatar.cc/150?img=1",
+    created_at: "2024-01-15T10:00:00Z",
+    updated_at: "2024-01-15T10:00:00Z",
+  },
+  {
+    id: "2",
+    name: "Jane Smith",
+    email: "jane.smith@example.com",
+    username: "janesmith",
+    full_name: "Jane Smith",
+    role: "intern",
+    division: "Frontend Developer",
+    angkatan: 2025,
+    status: "Pending",
+    avatarSrc: "https://i.pravatar.cc/150?img=2",
+    created_at: "2024-01-16T10:00:00Z",
+    updated_at: "2024-01-16T10:00:00Z",
+  },
+  {
+    id: "3",
+    name: "Mike Johnson",
+    email: "mike.johnson@example.com",
+    username: "mikejohnson",
+    full_name: "Mike Johnson",
+    role: "intern",
+    division: "Backend Developer",
+    angkatan: 2025,
+    status: "Approved",
+    avatarSrc: "https://i.pravatar.cc/150?img=3",
+    created_at: "2024-01-17T10:00:00Z",
+    updated_at: "2024-01-17T10:00:00Z",
+  },
+];
+
+export const mockTasks = [
+  {
+    id: "1",
+    title: "Pre Test 1 for All Intern",
+    deadline: "14 Aug 2024, 18:00",
+    status: "submitted" as const,
+    unread: true,
+    description: "Complete the pre-test assignment for all interns",
+  },
+  {
+    id: "2",
+    title: "UI/UX Design Wireframe",
+    deadline: "12 Aug 2024, 16:00",
+    status: "approved" as const,
+    unread: false,
+    description: "Create wireframes for the mobile application",
+  },
+  {
+    id: "3",
+    title: "User Research Analysis",
+    deadline: "10 Aug 2024, 14:00",
+    status: "revision" as const,
+    unread: true,
+    description: "Analyze user research data and provide insights",
+  },
+];
+
+export const mockMembers = [
+  {
+    id: "1",
+    username: "John Doe",
+    division: "UI/UX Designer",
+    school: "Universitas Indonesia",
+    avatarSrc: "https://i.pravatar.cc/150?img=1",
+  },
+  {
+    id: "2",
+    username: "Jane Smith",
+    division: "UI/UX Designer",
+    school: "Institut Teknologi Bandung",
+    avatarSrc: "https://i.pravatar.cc/150?img=2",
+  },
+  {
+    id: "3",
+    username: "Mike Johnson",
+    division: "UI/UX Designer",
+    school: "Universitas Gadjah Mada",
+    avatarSrc: "https://i.pravatar.cc/150?img=3",
+  },
+];

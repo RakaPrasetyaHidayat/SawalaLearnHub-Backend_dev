@@ -27,14 +27,19 @@ interface PostData {
 
 function mapItemToPostData(item: PostItem): PostData {
   const date = new Date(item.createdAt);
-  const timestamp = date.toLocaleString("en-US", {
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
+  // Handle invalid dates gracefully
+  const isValidDate = !isNaN(date.getTime());
+  const timestamp = isValidDate
+    ? date.toLocaleString("en-US", {
+        hour: "numeric",
+        minute: "2-digit",
+        hour12: true,
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+    : "Invalid date";
+
   return {
     id: item.id,
     user: { name: item.userName, avatar: item.userAvatar },

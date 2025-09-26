@@ -120,6 +120,9 @@ export default function UiUxSection({
                   onViewDetail={() =>
                     router.push("/main-Page/about/division-of/detail-task")
                   }
+                  onComment={() =>
+                    router.push(`/main-Page/about/division-of/task-comments?taskId=${t.id}&title=${encodeURIComponent(t.title)}&deadline=${encodeURIComponent(t.deadline)}`)
+                  }
                 />
               ))}
           </div>

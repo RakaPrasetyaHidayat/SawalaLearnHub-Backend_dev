@@ -1,37 +1,54 @@
-"use client"
+"use client";
 
-import React, { useState } from "react"
-import UploadDropzone from "@/components/molecules/upload/upload-dropzone"
-import FileItem from "@/components/molecules/upload/file-item"
-import TextareaWithLabel from "@/components/molecules/inputs/textarea/textarea-with-label"
+import React, { useState, useEffect } from "react";
+import UploadDropzone from "@/components/molecules/upload/upload-dropzone";
+import FileItem from "@/components/molecules/upload/file-item";
+import TextareaWithLabel from "@/components/molecules/inputs/textarea/textarea-with-label";
 
 type TaskDetailProps = {
-  title: string
-  deadline: string
-  description: string
-  onOpen?: () => void
-  onSubmit?: (payload: { files: File[]; description: string }) => void
-  className?: string
-}
+  title: string;
+  deadline: string;
+  description: string;
+  onOpen?: () => void;
+  onSubmit?: (payload: { files: File[]; description: string }) => void;
+  onShowSuccess?: () => void;
+  className?: string;
+};
 
-export default function TaskDetail({ title, deadline, description, onOpen, onSubmit, className = "" }: TaskDetailProps) {
-  const [files, setFiles] = useState<File[]>([])
-  const [desc, setDesc] = useState("")
-  const [error, setError] = useState<string | undefined>()
+export default function TaskDetail({
+  title,
+  deadline,
+  description,
+  onOpen,
+  onSubmit,
+  onShowSuccess,
+  className = "",
+}: TaskDetailProps) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [desc, setDesc] = useState("");
+  const [error, setError] = useState<string | undefined>();
+
+  useEffect(() => {
+    if (files.length > 0 || desc.trim()) {
+      setError(undefined);
+    }
+  }, [files, desc]);
 
   function handleAdd(newFiles: File[]) {
-    setFiles(prev => [...prev, ...newFiles])
+    setFiles((prev) => [...prev, ...newFiles]);
   }
   function handleRemove(idx: number) {
-    setFiles(prev => prev.filter((_, i) => i !== idx))
+    setFiles((prev) => prev.filter((_, i) => i !== idx));
   }
   function handleSubmit() {
-    if (files.length === 0 || !desc.trim()) {
-      setError("Fill in at least one column")
-      return
+    if (files.length === 0 && !desc.trim()) {
+      setError("Fill in at least one column");
+      return;
     }
-    setError(undefined)
-    onSubmit?.({ files, description: desc })
+    onSubmit?.({ files, description: desc });
+    if (onShowSuccess) {
+      onShowSuccess();
+    }
   }
 
   return (
@@ -44,7 +61,9 @@ export default function TaskDetail({ title, deadline, description, onOpen, onSub
       <p className="text-sm text-gray-700 leading-relaxed">{description}</p>
 
       <div>
-        <h2 className="text-sm font-semibold">Submit Assignment (Your Answer)</h2>
+        <h2 className="text-sm font-semibold">
+          Submit Assignment (Your Answer)
+        </h2>
         <div className="mt-2">
           <UploadDropzone onFilesAdded={handleAdd} />
         </div>
@@ -53,7 +72,12 @@ export default function TaskDetail({ title, deadline, description, onOpen, onSub
       {files.length > 0 && (
         <div className="grid gap-2">
           {files.map((f, idx) => (
-            <FileItem key={`${f.name}-${idx}`} name={f.name} sizeLabel={`${Math.ceil(f.size / (1024 * 1024))} MB`} onRemove={() => handleRemove(idx)} />
+            <FileItem
+              key={`${f.name}-${idx}`}
+              name={f.name}
+              sizeLabel={`${Math.ceil(f.size / (1024 * 1024))} MB`}
+              onRemove={() => handleRemove(idx)}
+            />
           ))}
         </div>
       )}
@@ -66,12 +90,21 @@ export default function TaskDetail({ title, deadline, description, onOpen, onSub
       />
 
       <div className="flex items-center gap-3">
-        <button type="button" className="h-9 px-4 border rounded-md text-sm" onClick={onOpen}>Open</button>
-        <button type="button" className="h-9 px-4 bg-blue-600 text-white rounded-md text-sm" onClick={handleSubmit}>Submit now</button>
+        <button
+          type="button"
+          className="h-9 px-4 border rounded-md text-sm"
+          onClick={onOpen}
+        >
+          Open
+        </button>
+        <button
+          type="button"
+          className="h-9 px-4 bg-blue-600 text-white rounded-md text-sm"
+          onClick={handleSubmit}
+        >
+          Submit now
+        </button>
       </div>
     </section>
-  )
+  );
 }
-
-
-

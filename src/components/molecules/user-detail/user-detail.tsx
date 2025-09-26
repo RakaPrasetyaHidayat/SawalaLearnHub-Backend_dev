@@ -3,8 +3,19 @@
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/atoms/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/atoms/ui/select";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/molecules/cards/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/atoms/ui/select";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/molecules/cards/card";
 import { ChevronLeft } from "lucide-react";
 
 export interface UserDetailProps {
@@ -13,13 +24,16 @@ export interface UserDetailProps {
   email: string;
   division: string;
   angkatan: string;
-  status: "Approved" | "Pending";
+  status: "Approved" | "Pending" | "Rejected" | "Active" | "Inactive";
   role: string;
   avatarSrc?: string;
   onBack?: () => void;
   onApprove?: () => void;
   onReject?: () => void;
+  onDelete?: () => void;
   onRoleChange?: (role: string) => void;
+  onStatusChange?: (status: string) => void;
+  isAdminView?: boolean;
 }
 
 export function UserDetail({
@@ -33,7 +47,10 @@ export function UserDetail({
   onBack,
   onApprove,
   onReject,
+  onDelete,
   onRoleChange,
+  onStatusChange,
+  isAdminView = false,
 }: UserDetailProps) {
   return (
     <div className="w-full max-w-md mx-auto bg-white min-h-screen">
@@ -55,7 +72,10 @@ export function UserDetail({
         {/* Profile Section */}
         <div className="flex flex-col items-center text-center space-y-3">
           <Avatar className="h-20 w-20">
-            <AvatarImage src={avatarSrc || "https://i.pravatar.cc/150?img=1"} alt={name} />
+            <AvatarImage
+              src={avatarSrc || "https://i.pravatar.cc/150?img=1"}
+              alt={name}
+            />
             <AvatarFallback className="bg-gray-200 text-gray-600 text-lg font-medium">
               {name.charAt(0).toUpperCase()}
             </AvatarFallback>
@@ -102,11 +122,21 @@ export function UserDetail({
               Status
             </label>
             <Badge
-              variant={status === "Approved" ? "default" : "secondary"}
+              variant={
+                status === "Approved" || status === "Active"
+                  ? "default"
+                  : "secondary"
+              }
               className={`text-sm px-3 py-1 ${
                 status === "Approved"
+                  ? "bg-green-100 text-green-700 hover:bg-green-100"
+                  : status === "Active"
                   ? "bg-blue-100 text-blue-700 hover:bg-blue-100"
-                  : "bg-orange-100 text-orange-700 hover:bg-orange-100"
+                  : status === "Pending"
+                  ? "bg-orange-100 text-orange-700 hover:bg-orange-100"
+                  : status === "Rejected"
+                  ? "bg-red-100 text-red-700 hover:bg-red-100"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-100"
               }`}
             >
               {status}
@@ -126,26 +156,68 @@ export function UserDetail({
                 <SelectItem value="Admin">Admin</SelectItem>
                 <SelectItem value="Member">Member</SelectItem>
                 <SelectItem value="Moderator">Moderator</SelectItem>
+                <SelectItem value="UI/UX Designer">UI/UX Designer</SelectItem>
+                <SelectItem value="Frontend Developer">
+                  Frontend Developer
+                </SelectItem>
+                <SelectItem value="Backend Developer">
+                  Backend Developer
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
+
+          {/* Change Status - Admin Only */}
+          {isAdminView && onStatusChange && (
+            <div>
+              <label className="text-sm font-medium text-blue-600 block mb-2">
+                Change Status
+              </label>
+              <Select value={status} onValueChange={onStatusChange}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Active">Active</SelectItem>
+                  <SelectItem value="Inactive">Inactive</SelectItem>
+                  <SelectItem value="Approved">Approved</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                  <SelectItem value="Rejected">Rejected</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
         </div>
 
         {/* Action Buttons */}
         <div className="flex gap-3 pt-4">
-          <Button
-            onClick={onApprove}
-            className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3"
-          >
-            Approve
-          </Button>
-          <Button
-            onClick={onReject}
-            variant="outline"
-            className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3"
-          >
-            Reject
-          </Button>
+          {isAdminView ? (
+            <>
+              <Button
+                onClick={onDelete}
+                variant="destructive"
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white font-medium py-3"
+              >
+                Delete User
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button
+                onClick={onApprove}
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3"
+              >
+                Approve
+              </Button>
+              <Button
+                onClick={onReject}
+                variant="outline"
+                className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3"
+              >
+                Reject
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
