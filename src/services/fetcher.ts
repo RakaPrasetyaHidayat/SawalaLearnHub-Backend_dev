@@ -51,17 +51,17 @@ export async function apiFetcher<T>(
 
   try {
     const url = `${baseUrl}${endpoint}`;
-    
+
     // Add timeout and better error handling
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
-    
+
     const res = await fetch(url, {
       headers,
       signal: controller.signal,
       ...options,
     });
-    
+
     clearTimeout(timeoutId);
 
     if (!res.ok) {
@@ -103,17 +103,29 @@ export async function apiFetcher<T>(
 
     return res.json();
   } catch (error: any) {
-    console.error("Fetch error:", error);
-    
+    // Don't log 404 errors for user profile endpoints since this is expected
+    // when the backend doesn't support individual user fetching
+    const isUserProfile404 =
+      error?.message?.includes("API Error 404") &&
+      endpoint?.includes("/api/v1/users/") &&
+      !endpoint?.includes("/status") &&
+      !endpoint?.includes("/pending");
+
+    if (!isUserProfile404) {
+      console.error("Fetch error:", error);
+    }
+
     // Handle specific error types
-    if (error.name === 'AbortError') {
+    if (error.name === "AbortError") {
       throw new Error("Request timeout - API server may be unavailable");
     }
-    
-    if (error.message?.includes('Failed to fetch')) {
-      throw new Error("Network error - Cannot connect to API server. Please check your internet connection or try again later.");
+
+    if (error.message?.includes("Failed to fetch")) {
+      throw new Error(
+        "Network error - Cannot connect to API server. Please check your internet connection or try again later."
+      );
     }
-    
+
     // Preserve original error message to aid debugging
     throw new Error(error?.message || "Network error while calling API");
   }

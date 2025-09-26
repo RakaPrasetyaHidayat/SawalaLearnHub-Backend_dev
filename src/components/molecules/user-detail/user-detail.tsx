@@ -153,16 +153,8 @@ export function UserDetail({
                 <SelectValue placeholder="Select role" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Admin">Admin</SelectItem>
-                <SelectItem value="Member">Member</SelectItem>
-                <SelectItem value="Moderator">Moderator</SelectItem>
-                <SelectItem value="UI/UX Designer">UI/UX Designer</SelectItem>
-                <SelectItem value="Frontend Developer">
-                  Frontend Developer
-                </SelectItem>
-                <SelectItem value="Backend Developer">
-                  Backend Developer
-                </SelectItem>
+                <SelectItem value="siswa">Siswa</SelectItem>
+                <SelectItem value="admin">Admin</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -190,9 +182,25 @@ export function UserDetail({
         </div>
 
         {/* Action Buttons */}
-        <div className="flex gap-3 pt-4">
-          {isAdminView ? (
-            <>
+        <div className="space-y-3 pt-4">
+          {isAdminView && (
+            <div className="flex gap-3">
+              <Button
+                onClick={onApprove}
+                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3"
+              >
+                Approve
+              </Button>
+              <Button
+                onClick={onReject}
+                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-3"
+              >
+                Reject
+              </Button>
+            </div>
+          )}
+          <div className="flex gap-3">
+            {isAdminView ? (
               <Button
                 onClick={onDelete}
                 variant="destructive"
@@ -200,24 +208,24 @@ export function UserDetail({
               >
                 Delete User
               </Button>
-            </>
-          ) : (
-            <>
-              <Button
-                onClick={onApprove}
-                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3"
-              >
-                Approve
-              </Button>
-              <Button
-                onClick={onReject}
-                variant="outline"
-                className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3"
-              >
-                Reject
-              </Button>
-            </>
-          )}
+            ) : (
+              <>
+                <Button
+                  onClick={onApprove}
+                  className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3"
+                >
+                  Approve
+                </Button>
+                <Button
+                  onClick={onReject}
+                  variant="outline"
+                  className="flex-1 border-gray-300 text-gray-700 hover:bg-gray-50 font-medium py-3"
+                >
+                  Reject
+                </Button>
+              </>
+            )}
+          </div>
         </div>
       </div>
     </div>

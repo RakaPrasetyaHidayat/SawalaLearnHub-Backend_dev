@@ -231,6 +231,12 @@ export async function fetchUserById(
 ): Promise<AdminUser> {
   const { getUserProfile } = await import("./apiClients");
 
-  const response = await getUserProfile(userId.toString());
-  return normalizeAdminUsers([response])[0];
+  try {
+    const response = await getUserProfile(userId.toString());
+    return normalizeAdminUsers([response])[0];
+  } catch (error) {
+    // Don't log the error here since it's handled by the calling component
+    // as a fallback to query parameters
+    throw error;
+  }
 }

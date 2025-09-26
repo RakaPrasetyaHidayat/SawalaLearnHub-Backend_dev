@@ -259,7 +259,7 @@ export function AdminUserList() {
         (displayPagination.totalPages > 1 ||
           displayPagination.total > displayPagination.limit) && (
           <div className="px-4 py-3 bg-white border-t border-gray-200">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:justify-between flex-wrap">
               <div className="flex items-center text-sm text-gray-700">
                 <p className="whitespace-nowrap">
                   Showing{" "}
@@ -282,7 +282,7 @@ export function AdminUserList() {
                   results
                 </p>
               </div>
-              <div className="flex items-center justify-center sm:justify-end">
+              <div className="flex items-center justify-center">
                 <nav
                   className="relative z-0 inline-flex rounded-md shadow-sm -space-x-px"
                   aria-label="Pagination"

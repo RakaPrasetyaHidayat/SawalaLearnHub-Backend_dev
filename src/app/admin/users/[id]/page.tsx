@@ -92,6 +92,14 @@ export default function AdminUserDetailPage() {
     }
   };
 
+  const handleApprove = async () => {
+    await handleStatusChange("Approved");
+  };
+
+  const handleReject = async () => {
+    await handleStatusChange("Rejected");
+  };
+
   const handleRoleChange = (newRole: string) => {
     // This would be implemented when role update API is available
     console.log("Role change to:", newRole);
@@ -136,9 +144,10 @@ export default function AdminUserDetailPage() {
         role={user.role}
         avatarSrc={user.avatarSrc}
         onBack={handleBack}
+        onApprove={handleApprove}
+        onReject={handleReject}
         onDelete={handleDelete}
         onRoleChange={handleRoleChange}
-        onStatusChange={handleStatusChange}
         isAdminView={true}
       />
     </div>
