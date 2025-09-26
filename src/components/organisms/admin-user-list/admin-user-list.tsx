@@ -98,8 +98,18 @@ export function AdminUserList() {
   ]);
 
   const handleUserClick = (user: UserListItemProps) => {
-    // Navigate to user detail page
-    router.push(`/admin/users/${user.id}`);
+    // Navigate to user detail page with user data as query params for fallback
+    const queryParams = new URLSearchParams({
+      name: user.name || "",
+      email: user.email || "",
+      role: user.role || "",
+      division: user.division || "",
+      status: user.status || "",
+      avatarSrc: user.avatarSrc || "",
+      angkatan: user.angkatan?.toString() || "",
+    });
+
+    router.push(`/admin/users/${user.id}?${queryParams.toString()}`);
   };
 
   const handlePageChange = (newPage: number) => {

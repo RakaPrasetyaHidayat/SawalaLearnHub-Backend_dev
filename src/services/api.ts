@@ -1,27 +1,27 @@
 // API Configuration and Types
 export const API_CONFIG = {
-  BASE_URL: 'https://learnhubbackenddev.vercel.app',
+  BASE_URL: "https://learnhubbackenddev.vercel.app",
   TIMEOUT: 15000,
   ENDPOINTS: {
     AUTH: {
-      LOGIN: '/api/auth/login',
-      REGISTER: '/api/auth/register',
-      LOGOUT: '/api/auth/logout',
-      REFRESH: '/api/auth/refresh',
+      LOGIN: "/api/v1/auth/login",
+      REGISTER: "/api/v1/auth/register",
+      LOGOUT: "/api/v1/auth/logout",
+      REFRESH: "/api/v1/auth/refresh",
     },
     USERS: {
-      LIST: '/api/users',
-      PROFILE: '/api/users/profile',
-      UPDATE: '/api/users/update',
-      BY_DIVISION: '/api/users/division',
+      LIST: "/api/v1/users",
+      PROFILE: "/api/v1/users/profile",
+      UPDATE: "/api/v1/users/update",
+      BY_DIVISION: "/api/v1/users/division",
     },
     RESOURCES: {
-      LIST: '/api/resources',
-      CREATE: '/api/resources',
-      UPDATE: '/api/resources',
-      DELETE: '/api/resources',
-    }
-  }
+      LIST: "/api/v1/resources",
+      CREATE: "/api/v1/resources",
+      UPDATE: "/api/v1/resources",
+      DELETE: "/api/v1/resources",
+    },
+  },
 } as const;
 
 // API Response Types
@@ -87,7 +87,10 @@ export class ApiClient {
   private baseURL: string;
   private timeout: number;
 
-  constructor(baseURL: string = API_CONFIG.BASE_URL, timeout: number = API_CONFIG.TIMEOUT) {
+  constructor(
+    baseURL: string = API_CONFIG.BASE_URL,
+    timeout: number = API_CONFIG.TIMEOUT
+  ) {
     this.baseURL = baseURL;
     this.timeout = timeout;
   }
@@ -105,74 +108,81 @@ export class ApiClient {
         ...options,
         signal: controller.signal,
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
+          Accept: "application/json",
+          "Content-Type": "application/json",
           ...options.headers,
         },
       });
 
-      const contentType = response.headers.get('content-type') || '';
-      const data = contentType.includes('application/json')
+      const contentType = response.headers.get("content-type") || "";
+      const data = contentType.includes("application/json")
         ? await response.json().catch(() => null)
-        : await response.text().then(t => (t ? { message: t } : null)).catch(() => null);
+        : await response
+            .text()
+            .then((t) => (t ? { message: t } : null))
+            .catch(() => null);
 
       if (!response.ok) {
-        const backendMsg = (data && (data.message || data.error)) || '';
-        let message = backendMsg || `Request failed with status ${response.status}`;
-        
+        const backendMsg = (data && (data.message || data.error)) || "";
+        let message =
+          backendMsg || `Request failed with status ${response.status}`;
+
         switch (response.status) {
           case 400:
-            message = backendMsg || 'Bad request - please check your input';
+            message = backendMsg || "Bad request - please check your input";
             break;
           case 401:
-            message = backendMsg || 'Unauthorized - please check your credentials';
+            message =
+              backendMsg || "Unauthorized - please check your credentials";
             break;
           case 403:
-            message = backendMsg || 'Forbidden - you don\'t have permission';
+            message = backendMsg || "Forbidden - you don't have permission";
             break;
           case 404:
-            message = backendMsg || 'Resource not found';
+            message = backendMsg || "Resource not found";
             break;
           case 408:
-            message = 'Request timeout - please try again';
+            message = "Request timeout - please try again";
             break;
           case 429:
-            message = backendMsg || 'Too many requests - please try again later';
+            message =
+              backendMsg || "Too many requests - please try again later";
             break;
           case 500:
-            message = backendMsg || 'Internal server error';
+            message = backendMsg || "Internal server error";
             break;
           case 502:
           case 503:
           case 504:
-            message = backendMsg || 'Server is temporarily unavailable';
+            message = backendMsg || "Server is temporarily unavailable";
             break;
           default:
-            message = backendMsg || `Request failed (status ${response.status})`;
+            message =
+              backendMsg || `Request failed (status ${response.status})`;
         }
-        
+
         return {
           success: false,
           error: message,
-          data: undefined
+          data: undefined,
         };
       }
 
       return {
         success: true,
         data: data,
-        message: data?.message
+        message: data?.message,
       };
     } catch (err: unknown) {
-      if (err instanceof Error && err.name === 'AbortError') {
+      if (err instanceof Error && err.name === "AbortError") {
         return {
           success: false,
-          error: 'Request timeout - please check your connection'
+          error: "Request timeout - please check your connection",
         };
       }
       return {
         success: false,
-        error: err instanceof Error ? err.message : 'Unknown error occurred'
+        error: err instanceof Error ? err.message : "Unknown error occurred",
       };
     } finally {
       clearTimeout(timeoutId);
@@ -180,33 +190,50 @@ export class ApiClient {
   }
 
   // HTTP Methods
-  async get<T>(endpoint: string, headers?: Record<string, string>): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'GET', headers });
+  async get<T>(
+    endpoint: string,
+    headers?: Record<string, string>
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: "GET", headers });
   }
 
-  async post<T>(endpoint: string, data?: any, headers?: Record<string, string>): Promise<ApiResponse<T>> {
+  async post<T>(
+    endpoint: string,
+    data?: any,
+    headers?: Record<string, string>
+  ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
-      method: 'POST',
+      method: "POST",
       body: data ? JSON.stringify(data) : undefined,
-      headers
+      headers,
     });
   }
 
-  async put<T>(endpoint: string, data?: any, headers?: Record<string, string>): Promise<ApiResponse<T>> {
+  async put<T>(
+    endpoint: string,
+    data?: any,
+    headers?: Record<string, string>
+  ): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, {
-      method: 'PUT',
+      method: "PUT",
       body: data ? JSON.stringify(data) : undefined,
-      headers
+      headers,
     });
   }
 
-  async delete<T>(endpoint: string, headers?: Record<string, string>): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: 'DELETE', headers });
+  async delete<T>(
+    endpoint: string,
+    headers?: Record<string, string>
+  ): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { method: "DELETE", headers });
   }
 
   // Authentication Methods
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
-    return this.post<LoginResponse>(API_CONFIG.ENDPOINTS.AUTH.LOGIN, credentials);
+    return this.post<LoginResponse>(
+      API_CONFIG.ENDPOINTS.AUTH.LOGIN,
+      credentials
+    );
   }
 
   async register(userData: RegisterRequest): Promise<ApiResponse<User>> {
@@ -230,8 +257,12 @@ export class ApiClient {
     return this.put<User>(API_CONFIG.ENDPOINTS.USERS.UPDATE, userData);
   }
 
-  async getUsersByDivision(divisionId: string): Promise<ApiResponse<UsersByDivisionResponse>> {
-    return this.get<UsersByDivisionResponse>(`${API_CONFIG.ENDPOINTS.USERS.BY_DIVISION}/${divisionId}`);
+  async getUsersByDivision(
+    divisionId: string
+  ): Promise<ApiResponse<UsersByDivisionResponse>> {
+    return this.get<UsersByDivisionResponse>(
+      `${API_CONFIG.ENDPOINTS.USERS.BY_DIVISION}/${divisionId}`
+    );
   }
 
   async getAllUsersByDivisions(): Promise<ApiResponse<User[]>> {

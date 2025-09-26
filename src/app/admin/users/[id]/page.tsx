@@ -1,15 +1,16 @@
 "use client";
 
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useState, useEffect } from "react";
 import { UserDetail } from "@/components/molecules/user-detail";
 import { useAdminUsers } from "@/hooks/useAdminUsers";
-import { AdminUser } from "@/services/userService";
+import { AdminUser, fetchUserById } from "@/services/userService";
 import { Loader2 } from "lucide-react";
 
 export default function AdminUserDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const userId = params.id as string;
   const { updateUserStatus, deleteUser } = useAdminUsers();
 
@@ -18,24 +19,44 @@ export default function AdminUserDetailPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // In a real app, you'd fetch the user by ID
-    // For now, we'll simulate loading
     const fetchUser = async () => {
       try {
-        // This would be replaced with actual API call
-        // const userData = await fetchUserById(userId);
+        const userData = await fetchUserById(userId);
+        setUser(userData);
         setLoading(false);
-        setError(
-          "User detail functionality needs to be implemented with actual API integration"
-        );
       } catch (err) {
-        setError(err instanceof Error ? err.message : "Failed to load user");
-        setLoading(false);
+        // If API fails, try to use data from query params as fallback
+        const name = searchParams.get("name");
+        const email = searchParams.get("email");
+        const role = searchParams.get("role");
+        const division = searchParams.get("division");
+        const status = searchParams.get("status");
+        const avatarSrc = searchParams.get("avatarSrc");
+        const angkatan = searchParams.get("angkatan");
+
+        if (name && email) {
+          setUser({
+            id: userId,
+            name,
+            email,
+            role,
+            division,
+            status: (status as AdminUser["status"]) || "Pending",
+            avatarSrc: avatarSrc || undefined,
+            angkatan: angkatan ? parseInt(angkatan) : undefined,
+            username: "",
+            full_name: name,
+          });
+          setLoading(false);
+        } else {
+          setError(err instanceof Error ? err.message : "Failed to load user");
+          setLoading(false);
+        }
       }
     };
 
     fetchUser();
-  }, [userId]);
+  }, [userId, searchParams]);
 
   const handleBack = () => {
     router.push("/admin/users");

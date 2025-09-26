@@ -18,35 +18,37 @@ export async function getUsers(params?: {
   if (params?.role) queryParams.append("role", params.role);
 
   const queryString = queryParams.toString();
-  const endpoint = queryString ? `/api/users?${queryString}` : "/api/users";
+  const endpoint = queryString
+    ? `/api/v1/users?${queryString}`
+    : "/api/v1/users";
 
   return apiFetcher<any>(endpoint);
 }
 
 // Admin specific user management functions
 export async function getPendingUsers() {
-  return apiFetcher<any>("/api/users/pending");
+  return apiFetcher<any>("/api/v1/users/pending");
 }
 
 export async function updateUserStatus(
   userId: string | number,
   status: string
 ) {
-  return apiFetcher<any>(`/api/users/${userId}/status`, {
+  return apiFetcher<any>(`/api/v1/users/${userId}/status`, {
     method: "PUT",
     body: JSON.stringify({ status }),
   });
 }
 
 export async function deleteUser(userId: string | number) {
-  return apiFetcher<any>(`/api/users/${userId}`, {
+  return apiFetcher<any>(`/api/v1/users/${userId}`, {
     method: "DELETE",
   });
 }
 
 // Authentication functions
 export async function login(email: string, password: string) {
-  return apiFetcher<any>("/api/auth/login", {
+  return apiFetcher<any>("/api/v1/auth/login", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
@@ -60,7 +62,7 @@ export async function register(payload: {
   division?: string;
   angkatan?: number;
 }) {
-  return apiFetcher<any>("/api/auth/register", {
+  return apiFetcher<any>("/api/v1/auth/register", {
     method: "POST",
     body: JSON.stringify(payload),
   });
@@ -68,11 +70,11 @@ export async function register(payload: {
 
 // Profile management functions
 export async function getUserProfile(userId: string) {
-  return apiFetcher<any>(`/api/users/${userId}`);
+  return apiFetcher<any>(`/api/v1/users/${userId}`);
 }
 
 export async function updateUserProfile(userId: string, profileData: any) {
-  return apiFetcher<any>(`/api/users/${userId}`, {
+  return apiFetcher<any>(`/api/v1/users/${userId}`, {
     method: "PUT",
     body: JSON.stringify(profileData),
   });

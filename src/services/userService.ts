@@ -85,7 +85,7 @@ export async function fetchMembers(): Promise<Member[]> {
     }
 
     // Fallback to raw fetcher (this throws on HTTP errors like 401)
-    const raw = await apiFetcher<any>("/api/users");
+    const raw = await apiFetcher<any>("/api/v1/users");
     return normalizeMembers(raw);
   } catch (error) {
     console.error("Failed to fetch members, using mock data:", error);
@@ -224,4 +224,13 @@ export async function deleteUserAccount(
     console.error("Failed to delete user:", error);
     throw error;
   }
+}
+
+export async function fetchUserById(
+  userId: string | number
+): Promise<AdminUser> {
+  const { getUserProfile } = await import("./apiClients");
+
+  const response = await getUserProfile(userId.toString());
+  return normalizeAdminUsers([response])[0];
 }
