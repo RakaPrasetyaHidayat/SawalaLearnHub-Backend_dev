@@ -187,13 +187,13 @@ export function UserDetail({
             <div className="flex gap-3">
               <Button
                 onClick={onApprove}
-                className="flex-1 bg-green-600 hover:bg-green-700 text-white font-medium py-3"
+                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-medium py-3"
               >
                 Approve
               </Button>
               <Button
                 onClick={onReject}
-                className="flex-1 bg-red-500 hover:bg-red-600 text-white font-medium py-3"
+                className="flex-1 bg-white hover:bg-gray-50 text-blue-600 font-medium py-3 border border-blue-600"
               >
                 Reject
               </Button>

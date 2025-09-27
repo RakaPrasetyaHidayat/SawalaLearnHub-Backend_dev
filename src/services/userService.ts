@@ -207,7 +207,9 @@ export const updateUserStatus = async (
   try {
     const token = getAuthToken();
 
-    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://learnhubbackenddev.vercel.app";
+    const baseUrl =
+      process.env.NEXT_PUBLIC_API_BASE_URL ||
+      "https://learnhubbackenddev.vercel.app";
     const url = `${baseUrl}/api/v1/users/${userId}/status`;
     console.log("Updating user status at URL:", url, "with body:", { status });
 
