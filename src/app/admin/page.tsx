@@ -11,23 +11,13 @@ export default function AdminHomePage() {
     <div className="w-full min-h-screen px-4 py-2">
       <div className="mx-auto w-full max-w-md">
         {/* Header: Title + Admin Badge + Action Button */}
-        <div className="flex items-center justify-between">
+        <div className="flex items-center justify-between mt-4">
           <h1 className="font-bold text-xl">
             Sawala Learnhub
             <span className="ml-2 align-middle rounded bg-blue-600 text-white text-xs px-2 py-0.5">
               Admin
             </span>
           </h1>
-          <button
-            type="button"
-            className="border rounded px-3 py-1 text-sm hover:bg-muted/50"
-            onClick={() => {
-              // TODO: nanti ganti dengan modal/menu aksi admin
-              console.log("Admin actions placeholder clicked");
-            }}
-          >
-            Aksi Admin
-          </button>
         </div>
 
         {/* Navigation + Content (identik dengan main-Page) */}

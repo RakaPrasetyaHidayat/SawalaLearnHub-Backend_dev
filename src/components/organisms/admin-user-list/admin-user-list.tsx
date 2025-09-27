@@ -231,9 +231,9 @@ export function AdminUserList() {
               )}
 
               {/* All Users List */}
-              {filteredUsers.map((user) => (
+              {filteredUsers.map((user, index) => (
                 <UserListItem
-                  key={user.id}
+                  key={`${user.id}-${index}`}
                   id={user.id}
                   name={user.name}
                   role={user.role}
@@ -259,7 +259,7 @@ export function AdminUserList() {
         (displayPagination.totalPages > 1 ||
           displayPagination.total > displayPagination.limit) && (
           <div className="px-4 py-3 bg-white border-t border-gray-200">
-            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:justify-between flex-wrap">
+            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row sm:justify-between">
               <div className="flex items-center text-sm text-gray-700">
                 <p className="whitespace-nowrap">
                   Showing{" "}

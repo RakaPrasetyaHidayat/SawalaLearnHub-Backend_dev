@@ -1,4 +1,5 @@
-import { apiFetcher } from "./fetcher";
+import { apiFetcher, getAuthToken } from "./fetcher";
+import { User } from "@/types/user";
 import { apiClient } from "./api";
 import { mockUsers, mockMembers } from "./mockDataFallback";
 
@@ -198,20 +199,60 @@ export async function fetchPendingUsers(): Promise<AdminUser[]> {
   }
 }
 
-export async function updateUserStatus(
-  userId: string | number,
-  status: string
-): Promise<AdminUser> {
-  const { updateUserStatus: updateStatus } = await import("./apiClients");
-
+// Function to update a user's status (approve/reject)
+export const updateUserStatus = async (
+  userId: string,
+  status: "ACTIVE" | "REJECTED"
+) => {
   try {
-    const response = await updateStatus(userId, status);
-    return normalizeAdminUsers([response])[0];
+    const token = getAuthToken();
+
+    const baseUrl = process.env.NEXT_PUBLIC_API_BASE_URL || "https://learnhubbackenddev.vercel.app";
+    const url = `${baseUrl}/api/v1/users/${userId}/status`;
+    console.log("Updating user status at URL:", url, "with body:", { status });
+
+    const response = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      },
+      body: JSON.stringify({ status }),
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      const message = text || response.statusText || "Failed to update status";
+      throw new Error(message);
+    }
+
+    if (response.status === 204) {
+      return null;
+    }
+
+    return response.json();
   } catch (error) {
     console.error("Failed to update user status:", error);
     throw error;
   }
-}
+};
+
+// Function to update a user's role
+export const updateUserRole = async (userId: string, role: string) => {
+  try {
+    const response = await apiFetcher(`/api/users/${userId}/role`, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ role }),
+    });
+    return response;
+  } catch (error) {
+    console.error("Failed to update user role:", error);
+    throw error;
+  }
+};
 
 export async function deleteUserAccount(
   userId: string | number

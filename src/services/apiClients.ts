@@ -70,6 +70,7 @@ export async function register(payload: {
 
 // Profile management functions
 export async function getUserProfile(userId: string) {
+  console.log("Fetching user profile for userId:", userId);
   return apiFetcher<any>(`/api/v1/users/${userId}`);
 }
 
