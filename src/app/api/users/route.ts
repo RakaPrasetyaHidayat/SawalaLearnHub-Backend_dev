@@ -137,6 +137,47 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // If we got a backend response but it was a client error (400/422) for the users endpoint,
+    // try a couple of lenient fallbacks before giving up. Some backend versions require a
+    // limit or different path like /api/users/all.
+    if (backendRes && !backendRes.ok) {
+      try {
+        const lastSafe = attempts[0]?.url.replace(/^https?:\/\/[^/]+/i, "") || "";
+        if (/\/api\/users\b/i.test(lastSafe)) {
+          const fallbacks = [
+            `${base}/api/users?limit=1000`,
+            `${base}/api/users/all`,
+          ];
+          for (const fb of fallbacks) {
+            const controllerFb = new AbortController();
+            const timeoutFb = setTimeout(() => controllerFb.abort(), 10000);
+            try {
+              const fbRes = await fetch(fb, {
+                method: "GET",
+                headers: { Accept: "application/json", ...(authHeader ? { Authorization: authHeader } : {}) },
+                signal: controllerFb.signal,
+                cache: "no-store",
+              });
+              clearTimeout(timeoutFb);
+              if (fbRes && fbRes.ok) {
+                backendRes = fbRes;
+                tried.push(`GET ${fb.replace(/^https?:\/\//i, "")}`);
+                break;
+              } else {
+                const txt = await fbRes?.clone().text().catch(() => "");
+                tried.push(`GET ${fb.replace(/^https?:\/\//i, "")} -> ${fbRes?.status} ${txt.slice(0,200)}`);
+              }
+            } catch (e) {
+              clearTimeout(timeoutFb);
+              // continue to next fallback
+            }
+          }
+        }
+      } catch (e) {
+        // ignore fallback failures
+      }
+    }
+
     if (!backendRes) {
       return NextResponse.json(
         {

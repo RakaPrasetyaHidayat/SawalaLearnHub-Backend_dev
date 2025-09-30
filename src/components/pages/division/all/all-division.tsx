@@ -122,6 +122,27 @@ export default function AllDivision({
                   }
                 />
               ))}
+
+            {!tasksLoading && !tasksError && (
+              <button
+                onClick={() => {
+                  const params = new URLSearchParams();
+                  const yearValue = searchParams.get("year");
+                  const divisionId = searchParams.get("division_id");
+
+                  if (divisionId) params.set("division_id", divisionId);
+                  if (yearValue) params.set("year", yearValue);
+
+                  router.push(
+                    `/admin/about/division-of/detail-task/create-task?${params.toString()}`,
+                  );
+                }}
+                className="fixed bottom-20 right-6 h-12 w-12 rounded-full bg-blue-600 text-white shadow-lg transition hover:bg-blue-700 flex items-center justify-center text-3xl"
+                aria-label="Create new task"
+              >
+                +
+              </button>
+            )}
           </div>
         )}
 

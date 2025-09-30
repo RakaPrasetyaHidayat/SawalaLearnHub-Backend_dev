@@ -38,15 +38,26 @@ export class DivisionService {
       // Get member count for each division
       const divisionsWithCount = await Promise.all(
         divisions.map(async (division) => {
-          const memberCount = await this.getDivisionMemberCount(
-            division.id,
-            year,
-            status
-          );
-          return {
-            ...division,
-            memberCount,
-          };
+          try {
+            const memberCount = await this.getDivisionMemberCount(
+              division.id,
+              year,
+              status
+            );
+            return {
+              ...division,
+              memberCount,
+            };
+          } catch (e) {
+            console.warn(
+              `Failed to fetch member count for division ${division.id}. Defaulting to 0.`,
+              e
+            );
+            return {
+              ...division,
+              memberCount: 0,
+            };
+          }
         })
       );
 
@@ -110,19 +121,27 @@ export class DivisionService {
       };
 
       // 1) Try server-side filtered count via division endpoint (with year & status)
+      // Build candidate identifiers (names + UUID from ENV). ENV may contain full URLs; extract UUID safely.
       const candidatesMap: Record<string, string[]> = {
         uiux: ["uiux", "UI/UX", "UI/UX Designer", "ui-ux", "uiux-designer"],
         frontend: ["frontend", "Frontend", "Frontend Dev", "frontend-dev"],
         backend: ["backend", "Backend", "Backend Dev", "backend-dev"],
-        devops: ["0e5c4601-d68a-45d0-961f-b11e0472a71b", "devops", "DevOps"],
+        devops: ["devops", "DevOps"],
       };
-      const divisionUuidMap: Record<string, string | undefined> = {
+      const divisionEnvRawMap: Record<string, string | undefined> = {
         uiux: process.env.NEXT_PUBLIC_DIVISION_UIUX_ID,
         frontend: process.env.NEXT_PUBLIC_DIVISION_FRONTEND_ID,
         backend: process.env.NEXT_PUBLIC_DIVISION_BACKEND_ID,
         devops: process.env.NEXT_PUBLIC_DIVISION_DEVOPS_ID,
       };
-      const envUuid = divisionUuidMap[divisionId];
+      const extractUuid = (val?: string): string | undefined => {
+        if (!val) return undefined;
+        const m = String(val).match(
+          /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i
+        );
+        return m ? m[0] : undefined;
+      };
+      const envUuid = extractUuid(divisionEnvRawMap[divisionId]);
       const candidates =
         divisionId === "all"
           ? ["all"]
@@ -187,7 +206,13 @@ export class DivisionService {
       // 2) Fallback: fetch users and filter client-side (legacy logic)
       if (!data) {
         const endpoint = "/api/users";
-        data = await apiFetcher<any>(endpoint);
+        try {
+          data = await apiFetcher<any>(endpoint);
+        } catch (e) {
+          console.warn(`Fallback fetch ${endpoint} failed, proceeding with empty users array.`, e);
+          // ensure we don't propagate API errors upstream; present empty data to filtering logic
+          data = [];
+        }
       }
 
       // Extract user arrays from various possible shapes
@@ -563,7 +588,12 @@ export class DivisionService {
         // If no UUID candidates or no non-empty result, fetch all users and filter client-side
         if (typeof data === "undefined") {
           endpoint = "/api/users";
-          data = await apiFetcher<any>(endpoint);
+          try {
+            data = await apiFetcher<any>(endpoint);
+          } catch (e) {
+            console.warn(`Fetching ${endpoint} failed while resolving division members for ${divisionId}:`, e);
+            data = [];
+          }
         }
       }
 

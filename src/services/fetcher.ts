@@ -28,12 +28,13 @@ export function removeAuthToken(): void {
 
 export async function apiFetcher<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  tokenOverride?: string | null
 ): Promise<T> {
   const baseUrl =
     process.env.NEXT_PUBLIC_API_BASE_URL ||
     "https://learnhubbackenddev.vercel.app";
-  const token = getAuthToken();
+  const token = tokenOverride ?? getAuthToken();
 
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
@@ -44,23 +45,45 @@ export async function apiFetcher<T>(
     headers.Authorization = `Bearer ${token}`;
   }
 
-  console.log("Fetching URL:", `${baseUrl}${endpoint}`);
+  // If running in browser and caller used a local API route (startsWith '/api'), prefer same-origin
+  const isBrowser = typeof window !== "undefined";
+  const useRelative = isBrowser && String(endpoint).startsWith("/api");
+  const url = useRelative ? endpoint : `${baseUrl}${endpoint}`;
+
+  console.log("Fetching URL:", url, { useRelative, baseUrl, endpoint });
+  const mask = (t?: string | null) => {
+    if (!t) return null;
+    if (t.length <= 10) return t.replace(/.(?=.{2})/g, "*");
+    return `${t.slice(0, 6)}...${t.slice(-4)}`;
+  };
+
   console.log("Request headers:", headers);
   console.log("Request options:", options);
-  console.log("Using token:", token);
+  console.log("Using token (masked):", mask(token));
 
   try {
-    const url = `${baseUrl}${endpoint}`;
-
     // Add timeout and better error handling
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
 
-    const res = await fetch(url, {
-      headers,
-      signal: controller.signal,
+    // If body is FormData, let the browser set Content-Type (remove header)
+    const finalHeaders = { ...headers };
+    const body = (options as any).body;
+    if (typeof FormData !== 'undefined' && body instanceof FormData) {
+      delete (finalHeaders as any)["Content-Type"];
+    }
+
+    const fetchOptions: RequestInit = {
       ...options,
-    });
+      headers: finalHeaders,
+      signal: controller.signal,
+    };
+    // When using relative proxy on same-origin, include credentials so cookies (if any) are forwarded
+    if (useRelative) {
+      (fetchOptions as any).credentials = 'same-origin';
+    }
+
+    const res = await fetch(url, fetchOptions);
 
     clearTimeout(timeoutId);
 
@@ -81,19 +104,29 @@ export async function apiFetcher<T>(
         bodyText ||
         res.statusText;
 
+      // If unauthorized, clear token and give clear message
       if (res.status === 401) {
         removeAuthToken();
         console.error("Authentication failed:", backendMsg);
         throw new Error(
-          `Authentication required. ${backendMsg || "Please log in again."}`
+          `Authentication required when calling ${url}. ${backendMsg || "Please log in again."}`
         );
       }
 
-      const detail =
-        typeof backendMsg === "string"
-          ? backendMsg.slice(0, 500)
-          : res.statusText;
-      throw new Error(`API Error ${res.status}: ${detail}`);
+      // Detect HTML error pages (common when a proxy/route returns an HTML page)
+      const isHtmlResponse = String(bodyText || "").toLowerCase().includes("<!doctype html") ||
+        String(bodyText || "").toLowerCase().includes("<html");
+
+      const detail = (() => {
+        if (isHtmlResponse) {
+          // show small HTML snippet so developer can recognize it's an HTML error page
+          const snippet = String(bodyText || "").slice(0, 400).replace(/\s+/g, " ");
+          return `Non-JSON (HTML) response received from ${url}. Response snippet: ${snippet}`;
+        }
+        return typeof backendMsg === "string" ? backendMsg.slice(0, 500) : res.statusText;
+      })();
+
+      throw new Error(`API Error ${res.status} when calling ${url}: ${detail}`);
     }
 
     if (res.status === 204) {

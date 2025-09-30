@@ -1,77 +1,113 @@
-// API Configuration and Types
-export const API_CONFIG = {
-  BASE_URL: "https://learnhubbackenddev.vercel.app",
-  TIMEOUT: 15000,
-  ENDPOINTS: {
-    AUTH: {
-      LOGIN: "/api/v1/auth/login",
-      REGISTER: "/api/v1/auth/register",
-      LOGOUT: "/api/v1/auth/logout",
-      REFRESH: "/api/v1/auth/refresh",
-    },
-    USERS: {
-      LIST: "/api/v1/users",
-      PROFILE: "/api/v1/users/profile",
-      UPDATE: "/api/v1/users/update",
-      BY_DIVISION: "/api/v1/users/division",
-    },
-    RESOURCES: {
-      LIST: "/api/v1/resources",
-      CREATE: "/api/v1/resources",
-      UPDATE: "/api/v1/resources",
-      DELETE: "/api/v1/resources",
-    },
-  },
-} as const;
+const BASE_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL || "https://learnhubbackenddev.vercel.app";
 
-// API Response Types
-export interface ApiResponse<T = any> {
-  success: boolean;
-  message?: string;
-  data?: T;
-  error?: string;
+// Get auth token from localStorage/sessionStorage
+function getAuthToken(): string | null {
+  if (typeof window === "undefined") return null;
+  const token =
+    localStorage.getItem("auth_token") ||
+    sessionStorage.getItem("auth_token") ||
+    localStorage.getItem("token") ||
+    sessionStorage.getItem("token");
+  return token;
 }
 
-export interface LoginRequest {
-  email: string;
-  password: string;
-}
-
-export interface LoginResponse {
-  token: string;
-  user: {
-    id: string;
-    email: string;
-    username: string;
-    full_name?: string;
-    division?: string;
-    angkatan?: number;
+async function request(path: string, options: RequestInit = {}) {
+  const token = getAuthToken();
+  
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    ...((options.headers || {}) as Record<string, string>),
   };
+
+  // Add authorization header if token exists
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  console.log("API request to:", `${BASE_URL}${path}`);
+  console.log("Request headers:", headers);
+  console.log("Using token:", token);
+
+  // Prefer relative path when called from browser to hit the Next.js proxy (/api/*)
+  const isBrowser = typeof window !== "undefined";
+  const useRelative = isBrowser && path.startsWith("/api");
+  const url = useRelative ? path : `${BASE_URL}${path}`;
+
+  const finalHeaders = { ...headers };
+  const body = (options as any).body;
+  if (typeof FormData !== 'undefined' && body instanceof FormData) {
+    delete (finalHeaders as any)["Content-Type"];
+  }
+
+  const fetchOptions: RequestInit = {
+    ...options,
+    headers: finalHeaders,
+  };
+  if (useRelative) (fetchOptions as any).credentials = 'same-origin';
+
+  const res = await fetch(url, fetchOptions);
+  
+  if (!res.ok) {
+    throw new Error(`API error: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
 }
 
-export interface RegisterRequest {
-  email: string;
-  password: string;
-  full_name?: string;
-  division?: string;
-  angkatan?: number;
+/* ----------------- TASKS ----------------- */
+export async function getAllTasks() {
+  return request("/api/tasks");
 }
 
+export async function createTask(taskData: any) {
+  return request("/api/tasks", {
+    method: "POST",
+    body: JSON.stringify(taskData),
+  });
+}
+
+export async function submitTask(submitData: any) {
+  return request("/api/tasks/submit", {
+    method: "POST",
+    body: JSON.stringify(submitData),
+  });
+}
+
+export async function updateTaskStatus(id: string, status: string) {
+  return request(`/api/tasks/${id}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+  });
+}
+
+/* ----------------- POSTS ----------------- */
+export async function getPosts() {
+  return request("/api/posts");
+}
+
+export async function createPost(postData: any) {
+  return request("/api/posts", {
+    method: "POST",
+    body: JSON.stringify(postData),
+  });
+}
+
+export async function deletePost(id: string) {
+  return request(`/api/posts/${id}`, {
+    method: "DELETE",
+  });
+}
+
+/* ----------------- TYPES ----------------- */
 export interface User {
-  id: string;
+  id: string | number;
+  name: string;
   email: string;
-  username: string;
-  full_name?: string;
   division?: string;
   angkatan?: number;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface UsersByDivisionResponse {
-  users: User[];
-  count: number;
-  division: string;
+  role?: string;
+  status?: string;
+  [key: string]: any;
 }
 
 export interface DivisionStats {
@@ -82,201 +118,86 @@ export interface DivisionStats {
   devops: number;
 }
 
-// HTTP Client Class
-export class ApiClient {
-  private baseURL: string;
-  private timeout: number;
-
-  constructor(
-    baseURL: string = API_CONFIG.BASE_URL,
-    timeout: number = API_CONFIG.TIMEOUT
-  ) {
-    this.baseURL = baseURL;
-    this.timeout = timeout;
-  }
-
-  private async request<T>(
-    endpoint: string,
-    options: RequestInit = {}
-  ): Promise<ApiResponse<T>> {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), this.timeout);
-
-    try {
-      const url = `${this.baseURL}${endpoint}`;
-      const response = await fetch(url, {
-        ...options,
-        signal: controller.signal,
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-          ...options.headers,
-        },
-      });
-
-      const contentType = response.headers.get("content-type") || "";
-      const data = contentType.includes("application/json")
-        ? await response.json().catch(() => null)
-        : await response
-            .text()
-            .then((t) => (t ? { message: t } : null))
-            .catch(() => null);
-
-      if (!response.ok) {
-        const backendMsg = (data && (data.message || data.error)) || "";
-        let message =
-          backendMsg || `Request failed with status ${response.status}`;
-
-        switch (response.status) {
-          case 400:
-            message = backendMsg || "Bad request - please check your input";
-            break;
-          case 401:
-            message =
-              backendMsg || "Unauthorized - please check your credentials";
-            break;
-          case 403:
-            message = backendMsg || "Forbidden - you don't have permission";
-            break;
-          case 404:
-            message = backendMsg || "Resource not found";
-            break;
-          case 408:
-            message = "Request timeout - please try again";
-            break;
-          case 429:
-            message =
-              backendMsg || "Too many requests - please try again later";
-            break;
-          case 500:
-            message = backendMsg || "Internal server error";
-            break;
-          case 502:
-          case 503:
-          case 504:
-            message = backendMsg || "Server is temporarily unavailable";
-            break;
-          default:
-            message =
-              backendMsg || `Request failed (status ${response.status})`;
-        }
-
-        return {
-          success: false,
-          error: message,
-          data: undefined,
-        };
-      }
-
-      return {
-        success: true,
-        data: data,
-        message: data?.message,
-      };
-    } catch (err: unknown) {
-      if (err instanceof Error && err.name === "AbortError") {
-        return {
-          success: false,
-          error: "Request timeout - please check your connection",
-        };
-      }
-      return {
-        success: false,
-        error: err instanceof Error ? err.message : "Unknown error occurred",
-      };
-    } finally {
-      clearTimeout(timeoutId);
-    }
-  }
-
-  // HTTP Methods
-  async get<T>(
-    endpoint: string,
-    headers?: Record<string, string>
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: "GET", headers });
-  }
-
-  async post<T>(
-    endpoint: string,
-    data?: any,
-    headers?: Record<string, string>
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: "POST",
-      body: data ? JSON.stringify(data) : undefined,
-      headers,
-    });
-  }
-
-  async put<T>(
-    endpoint: string,
-    data?: any,
-    headers?: Record<string, string>
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, {
-      method: "PUT",
-      body: data ? JSON.stringify(data) : undefined,
-      headers,
-    });
-  }
-
-  async delete<T>(
-    endpoint: string,
-    headers?: Record<string, string>
-  ): Promise<ApiResponse<T>> {
-    return this.request<T>(endpoint, { method: "DELETE", headers });
-  }
-
-  // Authentication Methods
-  async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
-    return this.post<LoginResponse>(
-      API_CONFIG.ENDPOINTS.AUTH.LOGIN,
-      credentials
-    );
-  }
-
-  async register(userData: RegisterRequest): Promise<ApiResponse<User>> {
-    return this.post<User>(API_CONFIG.ENDPOINTS.AUTH.REGISTER, userData);
-  }
-
-  async logout(): Promise<ApiResponse<void>> {
-    return this.post<void>(API_CONFIG.ENDPOINTS.AUTH.LOGOUT);
-  }
-
-  // User Methods
-  async getUsers(): Promise<ApiResponse<User[]>> {
-    return this.get<User[]>(API_CONFIG.ENDPOINTS.USERS.LIST);
-  }
-
-  async getUserProfile(): Promise<ApiResponse<User>> {
-    return this.get<User>(API_CONFIG.ENDPOINTS.USERS.PROFILE);
-  }
-
-  async updateUserProfile(userData: Partial<User>): Promise<ApiResponse<User>> {
-    return this.put<User>(API_CONFIG.ENDPOINTS.USERS.UPDATE, userData);
-  }
-
-  async getUsersByDivision(
-    divisionId: string
-  ): Promise<ApiResponse<UsersByDivisionResponse>> {
-    return this.get<UsersByDivisionResponse>(
-      `${API_CONFIG.ENDPOINTS.USERS.BY_DIVISION}/${divisionId}`
-    );
-  }
-
-  async getAllUsersByDivisions(): Promise<ApiResponse<User[]>> {
-    return this.get<User[]>(API_CONFIG.ENDPOINTS.USERS.LIST);
-  }
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
 }
 
-// Default API client instance
-export const apiClient = new ApiClient();
+/* ----------------- API CLIENT ----------------- */
+export const apiClient = {
+  async getAllUsersByDivisions(): Promise<ApiResponse<User[]>> {
+    try {
+      const data = await request("/api/users");
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
 
-// Convenience functions for backward compatibility
+  async getUsersByDivision(divisionId: string): Promise<ApiResponse<{ users: User[] }>> {
+    try {
+      const data = await request(`/api/users/division/${divisionId}`);
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async getUsers(): Promise<ApiResponse<User[]>> {
+    try {
+      const data = await request("/api/users");
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async login(credentials: { email: string; password: string }): Promise<ApiResponse<any>> {
+    try {
+      const data = await request("/api/auth/login", {
+        method: "POST",
+        body: JSON.stringify(credentials),
+      });
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async register(userData: any): Promise<ApiResponse<any>> {
+    try {
+      const data = await request("/api/auth/register", {
+        method: "POST",
+        body: JSON.stringify(userData),
+      });
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  },
+
+  async updateUserProfile(profileData: any): Promise<ApiResponse<any>> {
+    try {
+      const data = await request("/api/users/profile", {
+        method: "PUT",
+        body: JSON.stringify(profileData),
+      });
+      return { success: true, data };
+    } catch (error: any) {
+      return { success: false, error: error.message };
+    }
+  }
+};
+
+/* ----------------- LEGACY API OBJECT ----------------- */
 export const api = {
-  get: <T>(endpoint: string) => apiClient.get<T>(endpoint),
-  post: <T>(endpoint: string, data?: any) => apiClient.post<T>(endpoint, data),
-  put: <T>(endpoint: string, data?: any) => apiClient.put<T>(endpoint, data),
-  delete: <T>(endpoint: string) => apiClient.delete<T>(endpoint),
+  getAllTasks,
+  createTask,
+  submitTask,
+  updateTaskStatus,
+  getPosts,
+  createPost,
+  deletePost,
 };

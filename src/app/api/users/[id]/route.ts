@@ -15,9 +15,10 @@ function extractMessage(data: unknown): string | undefined {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const userId = params.id;
     if (!userId) {
       return NextResponse.json(
@@ -177,9 +178,10 @@ export async function GET(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
   try {
+    const params = await context.params;
     const userId = params.id;
     if (!userId) {
       return NextResponse.json(

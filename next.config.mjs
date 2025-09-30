@@ -1,8 +1,13 @@
 import path from "path";
 import fs from "fs";
+import { fileURLToPath } from 'url';
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const nextConfig = {
   distDir: "dist",
+  // Ensure output tracing root is the repository root so Next.js doesn't pick a wrong workspace
+  outputFileTracingRoot: path.resolve(__dirname),
   productionBrowserSourceMaps: process.env.NODE_ENV === "production",
   reactStrictMode: false,
   typescript: {
