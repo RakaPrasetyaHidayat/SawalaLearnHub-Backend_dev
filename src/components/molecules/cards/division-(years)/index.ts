@@ -1,1 +1,1 @@
-export * from './division-card'
+export { default } from './division-card'

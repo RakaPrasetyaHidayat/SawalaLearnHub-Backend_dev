@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import NavigationBar from "@/components/molecules/navigationbar/navigationbar";
 import UserCard from "@/components/molecules/cards/user-card/user-card";
-import TaskCard from "@/components/molecules/cards/task-card/task-card";
+import TasksSection from "@/components/pages/division/all/tasks-section";
 import { Resource as Resources } from "@/components/organisms/resources/resources";
 import { useDivisionMembers } from "@/hooks/useDivisionMembers";
 import { useDivisionTasks } from "@/hooks/useDivisionTasks";
@@ -98,50 +98,16 @@ export default function AllDivision({
                 Failed to load tasks: {tasksError}
               </div>
             )}
-            {!tasksLoading && !tasksError && tasks.length === 0 && (
-              <div className="text-sm text-gray-600">
-                Tidak ada tugas untuk tahun ini.
-              </div>
-            )}
-            {!tasksLoading &&
-              !tasksError &&
-              tasks.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  status={t.status}
-                  title={t.title}
-                  deadline={t.deadline}
-                  unread={t.unread}
-                  statusIcons={{
-                    submitted: "/assets/icons/submitted.png",
-                    revision: "/assets/icons/revisi.png",
-                    approved: "/assets/icons/approved.png",
-                  }}
-                  onViewDetail={() =>
-                    router.push("/main-Page/about/division-of/detail-task")
-                  }
-                />
-              ))}
-
             {!tasksLoading && !tasksError && (
-              <button
-                onClick={() => {
-                  const params = new URLSearchParams();
-                  const yearValue = searchParams.get("year");
-                  const divisionId = searchParams.get("division_id");
-
-                  if (divisionId) params.set("division_id", divisionId);
-                  if (yearValue) params.set("year", yearValue);
-
+              <TasksSection
+                tasks={tasks}
+                onViewDetail={(taskId) =>
                   router.push(
-                    `/admin/about/division-of/detail-task/create-task?${params.toString()}`,
-                  );
-                }}
-                className="fixed bottom-20 right-6 h-12 w-12 rounded-full bg-blue-600 text-white shadow-lg transition hover:bg-blue-700 flex items-center justify-center text-3xl"
-                aria-label="Create new task"
-              >
-                +
-              </button>
+                    `/main-Page/about/division-of/detail-task/${taskId}`
+                  )
+                }
+                emptyMessage="Tidak ada tugas untuk tahun ini."
+              />
             )}
           </div>
         )}

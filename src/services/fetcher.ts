@@ -69,7 +69,7 @@ export async function apiFetcher<T>(
     // If body is FormData, let the browser set Content-Type (remove header)
     const finalHeaders = { ...headers };
     const body = (options as any).body;
-    if (typeof FormData !== 'undefined' && body instanceof FormData) {
+    if (typeof FormData !== "undefined" && body instanceof FormData) {
       delete (finalHeaders as any)["Content-Type"];
     }
 
@@ -80,7 +80,7 @@ export async function apiFetcher<T>(
     };
     // When using relative proxy on same-origin, include credentials so cookies (if any) are forwarded
     if (useRelative) {
-      (fetchOptions as any).credentials = 'same-origin';
+      (fetchOptions as any).credentials = "same-origin";
     }
 
     const res = await fetch(url, fetchOptions);
@@ -109,22 +109,38 @@ export async function apiFetcher<T>(
         removeAuthToken();
         console.error("Authentication failed:", backendMsg);
         throw new Error(
-          `Authentication required when calling ${url}. ${backendMsg || "Please log in again."}`
+          `Authentication required when calling ${url}. ${
+            backendMsg || "Please log in again."
+          }`
         );
       }
 
       // Detect HTML error pages (common when a proxy/route returns an HTML page)
-      const isHtmlResponse = String(bodyText || "").toLowerCase().includes("<!doctype html") ||
-        String(bodyText || "").toLowerCase().includes("<html");
+      const isHtmlResponse =
+        String(bodyText || "")
+          .toLowerCase()
+          .includes("<!doctype html") ||
+        String(bodyText || "")
+          .toLowerCase()
+          .includes("<html");
 
       const detail = (() => {
         if (isHtmlResponse) {
           // show small HTML snippet so developer can recognize it's an HTML error page
-          const snippet = String(bodyText || "").slice(0, 400).replace(/\s+/g, " ");
+          const snippet = String(bodyText || "")
+            .slice(0, 400)
+            .replace(/\s+/g, " ");
           return `Non-JSON (HTML) response received from ${url}. Response snippet: ${snippet}`;
         }
-        return typeof backendMsg === "string" ? backendMsg.slice(0, 500) : res.statusText;
+        return typeof backendMsg === "string"
+          ? backendMsg.slice(0, 500)
+          : res.statusText;
       })();
+
+      // Log the full HTML response for debugging purposes
+      if (isHtmlResponse) {
+        console.error("Full HTML response:", bodyText);
+      }
 
       throw new Error(`API Error ${res.status} when calling ${url}: ${detail}`);
     }
