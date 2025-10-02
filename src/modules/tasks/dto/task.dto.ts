@@ -24,7 +24,7 @@ export class CreateTaskDto {
   angkatan?: number;
 
   // Prefer using `division` (readable name) from frontend. Keep `division_id` optional and ignore when empty.
-  @ValidateIf((o) => o.division_id !== undefined && o.division_id !== null && String(o.division_id).trim() !== '')
+  @IsOptional()
   @IsString()
   division_id?: string;
 
