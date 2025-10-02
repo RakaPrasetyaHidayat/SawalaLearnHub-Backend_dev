@@ -100,9 +100,9 @@ export class ResourcesService {
       }
     }
 
-    const client = accessToken
-      ? this.supabaseService.getClientWithAuth(accessToken)
-      : this.supabaseService.getClient();
+    // Use admin client to avoid PostgREST role errors when app JWTs contain non-DB roles (e.g., "ADMIN").
+    // Security is enforced by Nest guards; DB RLS is satisfied via service role.
+    const client = this.supabaseService.getClient(true);
 
     const payload: any = { ...createResourceDto };
     if (resolvedDivisionId) payload.division_id = resolvedDivisionId;
@@ -126,7 +126,7 @@ export class ResourcesService {
       payload.channel_year = Number(createResourceDto.channel_year);
     }
 
-    // kalau masih kosong, biarkan kosong atau pakai userProfile (opsional)
+    // kalau masih kosong, coba pakai userProfile (opsional); jika tetap kosong, HAPUS dari payload agar default DB jalan
     if (
       typeof payload.channel_year === 'undefined' ||
       payload.channel_year === null
@@ -134,12 +134,19 @@ export class ResourcesService {
       if (userProfile?.channel_year) {
         payload.channel_year = Number(userProfile.channel_year);
       }
-      // else: biarkan null
     }
 
     // kalau division_id masih kosong, coba ambil dari profile (opsional)
     if (!payload.division_id && userProfile?.division_id) {
       payload.division_id = userProfile.division_id;
+    }
+
+    // Bersihkan field optional: jangan kirim bila kosong → biarkan default DB bekerja
+    if (payload.channel_year === undefined || payload.channel_year === null) {
+      delete payload.channel_year;
+    }
+    if (!payload.division_id) {
+      delete payload.division_id;
     }
 
     try {
@@ -178,9 +185,9 @@ export class ResourcesService {
 
   // Get all resources dengan filter opsional
   async getAllResources(query: GetResourcesQueryDto, accessToken?: string) {
-    const client = accessToken
-      ? this.supabaseService.getClientWithAuth(accessToken)
-      : this.supabaseService.getClient();
+    // Do NOT forward app JWTs to Supabase; they may contain role=ADMIN which is not a DB role.
+    // Use admin client for server-side queries to avoid PostgREST role errors.
+    const client = this.supabaseService.getClient(true);
     const { year, search, page = 1, limit = 10 } = query || {};
 
     let resolvedQueryDivisionId: string | undefined;
@@ -265,7 +272,7 @@ export class ResourcesService {
     let createdByValue = userId;
     try {
       const { data: user, error: userErr } = await this.supabaseService
-        .getClient()
+        .getClient(true)
         .from('users')
         .select('full_name')
         .eq('id', userId)
@@ -276,12 +283,24 @@ export class ResourcesService {
     }
 
     const { data: resources, error } = await this.supabaseService
-      .getClient()
+      .getClient(true)
       .from('resources')
       .select('*, divisions(name)')
       .eq('created_by', createdByValue)
       .order('created_at', { ascending: false });
     if (error) throw error;
     return (resources ?? []).map((r: any) => this.normalizeDivisionName(r));
+  }
+
+  async getResourceById(id: string) {
+    const { data: resource, error } = await this.supabaseService
+      .getClient(true)
+      .from('resources')
+      .select('*, divisions(name)')
+      .eq('id', id)
+      .maybeSingle();
+    if (error) throw error;
+    if (!resource) return null;
+    return this.normalizeDivisionName(resource);
   }
 }

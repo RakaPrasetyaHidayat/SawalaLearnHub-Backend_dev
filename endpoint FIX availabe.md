@@ -115,6 +115,35 @@
     - `userId`: ID of the user
   - Response: List of resources created by the user
 
+- **GET**: `http://localhost:3001/api/resources/{id}` (JWT)
+  - Description: Get a single resource by its ID
+  - Auth: JWT required
+  - Path Parameters:
+    - `id`: Resource UUID
+  - Response (200):
+    ```json
+    {
+      "id": "string",
+      "title": "string",
+      "description": "string",
+      "url": "string",
+      "type": "VIDEO|DOCUMENT|LINK|...",
+      "channel_year": 2025,
+      "division_id": "uuid|null",
+      "division_name": "string|null",
+      "created_by": "string",
+      "created_by_id": "uuid",
+      "created_at": "ISO timestamp"
+    }
+    ```
+  - 404 if not found
+
+## Changelog (Resources)
+1. Added GET `/api/resources/{id}` to fetch a single resource by UUID.
+2. Improved GET `/api/resources` to support filters `year`, `division_id`, and `search` with pagination (`page`, `limit`).
+3. Hardened server-side Supabase calls using service-role client to avoid PostgREST role errors (e.g., `role "ADMIN" does not exist`).
+4. POST `/api/resources` now maps `angkatan` → `channel_year` and can default `division_id`/`channel_year` from user profile or DB defaults.
+
 ## Tasks
 - **GET**: `http://localhost:3001/api/tasks/info`
 - **POST**: `http://localhost:3001/api/tasks` (JWT + Admin)

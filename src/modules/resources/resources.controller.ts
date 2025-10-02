@@ -80,4 +80,11 @@ export class ResourcesController {
   getUserResources(@Param('userId') userId: string) {
     return this.resourcesService.getUserResources(userId);
   }
+
+  // Get resource by ID
+  @Get(':id')
+  @UseGuards(JwtAuthGuard)
+  getResourceById(@Param('id') id: string) {
+    return this.resourcesService.getResourceById(id);
+  }
 }
