@@ -51,25 +51,32 @@ export async function POST(
       ? await res.json().catch(() => null)
       : await res.text().catch(() => "");
 
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    };
+
     if (!res.ok) {
-      const message =
-        data && typeof data === "object"
-          ? data.message || data.error
-          : data || `Failed to submit task ${taskId}`;
-      
-      console.error("Backend error:", { status: res.status, message, data });
-      return NextResponse.json(
-        { message, data },
-        { status: res.status }
-      );
+      const message = data && typeof data === "object" ? data.message || data.error : data || `Failed to submit task ${taskId}`;
+      console.warn("Backend error:", { status: res.status, message, data });
+      return NextResponse.json({ message, data }, { status: res.status, headers: corsHeaders });
     }
 
     console.log("Submit specific task response:", data);
-    return NextResponse.json(data, { status: res.status });
+    return NextResponse.json(data, { status: res.status, headers: corsHeaders });
   } catch (error) {
-    console.error("Proxy error:", error);
-    const message =
-      error instanceof Error ? error.message : "Failed to submit task";
-    return NextResponse.json({ message }, { status: 500 });
+    console.warn("Proxy error:", error);
+    const message = error instanceof Error ? error.message : "Failed to submit task";
+    return NextResponse.json({ message }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
   }
+}
+
+export async function OPTIONS() {
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+  return NextResponse.json({}, { status: 204, headers });
 }

@@ -1,18 +1,62 @@
 "use client";
 
 import Image from "next/image";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { TasksService } from "@/services/tasksService";
 
 export default function AddTaskPage() {
   const [deadline, setDeadline] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({ deadline, title, description, file });
-    // Add logic to submit the task
+    setError(null);
+
+    if (!title.trim()) {
+      setError("Title is required");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      let payload: any;
+      if (file) {
+        const fd = new FormData();
+        fd.append("title", title.trim());
+        fd.append("description", description.trim());
+        if (deadline) fd.append("deadline", deadline);
+        fd.append("file", file);
+        payload = fd;
+      } else {
+        payload = {
+          title: title.trim(),
+          description: description.trim(),
+          deadline: deadline || undefined,
+        };
+      }
+
+      const res = await TasksService.createTask(payload);
+      console.log("Task created", res);
+      // Navigate back to previous page or tasks list
+      router.back();
+    } catch (e: any) {
+      console.error("Failed to create task:", e);
+      // If backend included a responseBody, show it for debugging
+  const backendBody = e?.responseBody ?? e?.response ?? null;
+  const backendText = backendBody && typeof backendBody === "object" ? JSON.stringify(backendBody) : String(backendBody || "");
+  const requestPayload = e?.requestPayload ?? null;
+  const requestText = requestPayload ? JSON.stringify(requestPayload, null, 2) : "";
+  setError((e?.message ? `${e.message}` : "Failed to create task. Please try again.") + (backendText ? `\nServer response: ${backendText}` : "") + (requestText ? `\nRequest payload: ${requestText}` : ""));
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   const handleFileDrop = (e: React.DragEvent<HTMLDivElement>) => {

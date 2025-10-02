@@ -26,10 +26,16 @@ export function useDivisionTasks(divisionId: string, yearParam?: string) {
       try {
         setLoading(true);
         setError(null);
-        const data: Task[] = await TasksService.getTasksByDivisionAndYear(
-          divisionId,
-          apiYear
-        );
+        // Try loading tasks; if first attempt fails due to transient network issue,
+        // TasksService already retries internally, but do one additional attempt here
+        let data: Task[];
+        try {
+          data = await TasksService.getTasksByDivisionAndYear(divisionId, apiYear);
+        } catch (err) {
+          console.warn("First attempt to load tasks failed, retrying once", err);
+          await new Promise((r) => setTimeout(r, 700));
+          data = await TasksService.getTasksByDivisionAndYear(divisionId, apiYear);
+        }
         if (!active) return;
         setTasks(
           data.map((t) => ({
@@ -42,7 +48,11 @@ export function useDivisionTasks(divisionId: string, yearParam?: string) {
         );
       } catch (e: any) {
         if (!active) return;
-        setError(e?.message || "Failed to load tasks");
+        // Provide a friendly message and include original error for debugging
+        const msg = e?.message || "Failed to load tasks";
+        setError(msg.includes("timeout")
+          ? "Failed to load tasks: request timed out. The API server may be unavailable. Showing cached data if available."
+          : `Failed to load tasks: ${msg}`);
       } finally {
         if (active) setLoading(false);
       }

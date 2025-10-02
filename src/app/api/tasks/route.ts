@@ -35,7 +35,7 @@ async function readResponse(res: Response): Promise<NormalizedResponse> {
 
 function createHeaders(request: NextRequest, contentType?: string) {
   const headers: Record<string, string> = {
-    Accept: "application/json",
+    Accept: "application/json, */*",
   };
   const authHeader = request.headers.get("authorization");
   if (authHeader) headers.Authorization = authHeader;
@@ -69,57 +69,104 @@ export async function GET(request: NextRequest) {
     });
 
     const normalized = await readResponse(res);
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    };
     if (!normalized.ok) {
       return NextResponse.json(
         {
           message: normalized.message || "Failed to fetch tasks",
           data: normalized.payload,
         },
-        { status: normalized.status },
+        { status: normalized.status, headers: corsHeaders },
       );
     }
 
     return NextResponse.json(normalized.payload ?? [], {
       status: normalized.status,
+      headers: corsHeaders,
     });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to fetch tasks";
-    return NextResponse.json({ message }, { status: 500 });
+    return NextResponse.json({ message }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json().catch(() => ({}));
-    const headers = createHeaders(request, "application/json");
-    
-    console.log("POST Proxy URL:", TASKS_ENDPOINT);
-    console.log("POST Proxy Headers:", headers);
-    console.log("POST Body:", body);
+    const incomingType = (request.headers.get("content-type") || "").toLowerCase();
+    const isMultipart = incomingType.includes("multipart/form-data");
+
+    // Build headers: don't force Content-Type for multipart; pass through Authorization
+    const baseHeaders = createHeaders(request);
+    let headers: Record<string, string> = { ...baseHeaders };
+    let body: BodyInit | null = null;
+
+    if (isMultipart) {
+      // Forward stream as-is for file uploads
+      // Preserve original content-type (with boundary) so backend can parse
+      const ct = request.headers.get("content-type");
+      if (ct) headers["Content-Type"] = ct;
+      body = request.body as any; // ReadableStream passthrough
+      console.log("Create task (multipart) - Proxy URL:", TASKS_ENDPOINT);
+      console.log("Create task (multipart) - Forwarding stream body");
+    } else {
+      // Try JSON; if parse fails, forward raw text with original content-type
+      let jsonPayload: any = null;
+      try {
+        jsonPayload = await request.json();
+        headers["Content-Type"] = "application/json";
+        body = JSON.stringify(jsonPayload || {});
+      } catch {
+        const rawText = await request.text().catch(() => "");
+        const ct = request.headers.get("content-type");
+        if (ct) headers["Content-Type"] = ct;
+        body = rawText;
+      }
+      console.log("Create task (json/text) - Proxy URL:", TASKS_ENDPOINT);
+      console.log("Create task - Headers:", headers);
+    }
 
     const res = await fetch(TASKS_ENDPOINT, {
       method: "POST",
       headers,
-      body: JSON.stringify(body),
+      body,
     });
 
     const normalized = await readResponse(res);
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    };
     if (!normalized.ok) {
       return NextResponse.json(
         {
           message: normalized.message || "Failed to create task",
           data: normalized.payload,
         },
-        { status: normalized.status },
+        { status: normalized.status, headers: corsHeaders },
       );
     }
 
     const status = normalized.status === 200 ? 201 : normalized.status;
-    return NextResponse.json(normalized.payload ?? {}, { status });
+    return NextResponse.json(normalized.payload ?? {}, { status, headers: corsHeaders });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to create task";
-    return NextResponse.json({ message }, { status: 500 });
+    return NextResponse.json({ message }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
   }
+}
+
+// Handle preflight CORS requests
+export async function OPTIONS() {
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+  return NextResponse.json({}, { status: 204, headers });
 }

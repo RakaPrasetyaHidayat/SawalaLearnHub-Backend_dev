@@ -7,6 +7,8 @@ import { Button } from "@/components/atoms/ui/button";
 import UploadDropzone from "@/components/molecules/upload/upload-dropzone";
 import FileItem from "@/components/molecules/upload/file-item";
 import { getAuthToken } from "@/services/fetcher";
+import { createResource } from "@/services/resourcesService";
+import { logout } from "@/utils/auth";
 
 interface ResourcesData {
   title: string;
@@ -82,64 +84,75 @@ export function ResourcesForm() {
       const year = currentUrl.searchParams.get("year") || "";
 
       const token = getAuthToken();
-      let res: Response;
 
-      // Use multipart only when a file is included; otherwise send JSON
+      // File size validation: UI indicates max 25MB
+      const MAX_BYTES = 25 * 1024 * 1024;
+      if (resourcesData.file && resourcesData.file.size > MAX_BYTES) {
+        throw new Error("File too large. Maximum allowed size is 25 MB.");
+      }
+
+      // Build payload (FormData when file present)
+      let payload: Record<string, any> | FormData = {};
       if (resourcesData.file) {
         const formData = new FormData();
         formData.append("title", resourcesData.title.trim());
         formData.append("description", resourcesData.description.trim());
-        const normalizedUrl = resourcesData.url.trim();
-        formData.append("url", normalizedUrl);
+        formData.append("url", resourcesData.url.trim());
         formData.append("type", resourcesData.type);
         formData.append("file", resourcesData.file);
         if (divisionId) formData.append("division_id", divisionId);
         if (year) {
           const yearNum = Number(year);
-          formData.append(
-            "year",
-            Number.isFinite(yearNum) ? String(yearNum) : year
-          );
+          formData.append("year", Number.isFinite(yearNum) ? String(yearNum) : year);
         }
-
-        res = await fetch("/api/resources", {
-          method: "POST",
-          headers: token ? { Authorization: `Bearer ${token}` } : undefined,
-          body: formData,
-        });
+        payload = formData;
       } else {
-        const normalizedUrl = resourcesData.url.trim();
-        const payload: Record<string, any> = {
+        const json: Record<string, any> = {
           title: resourcesData.title.trim(),
           description: resourcesData.description.trim(),
-          url: normalizedUrl,
+          url: resourcesData.url.trim(),
           type: resourcesData.type,
         };
-        if (divisionId) payload.division_id = divisionId;
-        if (year)
-          payload.year = Number.isFinite(Number(year)) ? Number(year) : year;
-
-        res = await fetch("/api/resources", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify(payload),
-        });
+        if (divisionId) json.division_id = divisionId;
+        if (year) json.year = Number.isFinite(Number(year)) ? Number(year) : year;
+        payload = json;
       }
 
-      const contentType = res.headers.get("content-type") || "";
-      const data = contentType.includes("application/json")
-        ? await res.json().catch(() => null)
-        : null;
-
-      if (!res.ok) {
-        const message =
-          (data && (data.message || data.error)) ||
-          `Failed to save (status ${res.status})`;
-        throw new Error(message);
+      // Attempt create with one retry for transient errors
+      let lastErr: any = null;
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          await createResource(payload as any);
+          // success -> navigate back
+          router.back();
+          return;
+        } catch (err: any) {
+          lastErr = err;
+          const msg = String(err?.message || "").toLowerCase();
+          const isTimeout = msg.includes("timeout") || msg.includes("request timeout");
+          const isNetwork = msg.includes("failed to fetch") || msg.includes("network error");
+          const isServer5xx = /5\d{2}/.test(String(err?.status || ""));
+          // If unauthorized, force logout and redirect to login
+          if (err?.status === 401) {
+            try {
+              logout();
+            } catch {}
+            router.push("/login");
+            throw new Error("Unauthorized. Please login to continue.");
+          }
+          // retry only on timeout/network/5xx
+          if (attempt === 0 && (isTimeout || isNetwork || isServer5xx)) {
+            // small backoff
+            await new Promise((r) => setTimeout(r, 500));
+            continue;
+          }
+          // otherwise rethrow
+          throw err;
+        }
       }
+
+      // If we exited loop with lastErr, surface it
+      if (lastErr) throw lastErr;
 
       // Success: go back to the previous page (resources list)
       router.back();

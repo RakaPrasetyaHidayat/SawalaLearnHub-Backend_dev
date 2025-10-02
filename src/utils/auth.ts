@@ -69,10 +69,11 @@ export async function login(
 ): Promise<AuthState> {
   try {
     const response = await fetch("/api/_auth/login", {
-      method: "GET",
+      method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
+      body: JSON.stringify({ email, password }),
     });
 
     if (!response.ok) {

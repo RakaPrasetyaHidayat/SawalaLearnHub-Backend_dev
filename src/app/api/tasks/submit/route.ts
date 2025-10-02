@@ -34,24 +34,30 @@ export async function POST(request: NextRequest) {
       ? await res.json().catch(() => null)
       : await res.text().catch(() => "");
 
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    };
+
     if (!res.ok) {
-      const message =
-        payload && typeof payload === "object"
-          ? (payload as any).message || (payload as any).error
-          : undefined;
-      return NextResponse.json(
-        {
-          message: message || `Backend error (status ${res.status})`,
-          data: payload,
-        },
-        { status: res.status },
-      );
+      const message = payload && typeof payload === "object" ? (payload as any).message || (payload as any).error : undefined;
+      return NextResponse.json({ message: message || `Backend error (status ${res.status})`, data: payload }, { status: res.status, headers: corsHeaders });
     }
 
-    return NextResponse.json(payload ?? { success: true }, { status: res.status });
+    return NextResponse.json(payload ?? { success: true }, { status: res.status, headers: corsHeaders });
   } catch (error) {
     const message =
       error instanceof Error ? error.message : "Failed to submit task";
-    return NextResponse.json({ message }, { status: 500 });
+    return NextResponse.json({ message }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
   }
+}
+
+export async function OPTIONS() {
+  const headers = {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "GET,POST,OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  };
+  return NextResponse.json({}, { status: 204, headers });
 }

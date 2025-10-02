@@ -1,18 +1,108 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { getCurrentUser } from "@/services/authService";
+import { TasksService } from "@/services/tasksService";
+import { useRouter } from "next/navigation";
 
 export default function AddTaskPage() {
   const [deadline, setDeadline] = useState("");
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const router = useRouter();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        setLoadingUser(true);
+        const user = await getCurrentUser();
+        if (!mounted) return;
+        const role = (user?.role || user?.roles || "").toString().toLowerCase();
+        const adminFlag =
+          role === "admin" || (Array.isArray(user?.roles) && user.roles.some((r: any) => String(r).toLowerCase() === "admin")) || user?.isAdmin || user?.is_admin;
+        setIsAdmin(Boolean(adminFlag));
+      } catch (e: any) {
+        console.error("Failed to load current user:", e);
+        setError("Failed to verify user. Please login again.");
+      } finally {
+        setLoadingUser(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log({ deadline, title, description, file });
-    // Add logic to submit the task
+    setError(null);
+
+    if (loadingUser) {
+      setError("Still verifying user role, please wait...");
+      return;
+    }
+
+    if (!isAdmin) {
+      setError("Only admins can create tasks.");
+      return;
+    }
+
+    if (!title.trim()) {
+      setError("Title is required");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+
+      // Use FormData if there's a file, otherwise send JSON payload
+      let payload: any;
+      if (file) {
+        const fd = new FormData();
+        fd.append("title", title.trim());
+        fd.append("description", description.trim());
+        if (deadline) fd.append("deadline", deadline);
+        fd.append("file", file);
+        payload = fd;
+      } else {
+        payload = {
+          title: title.trim(),
+          description: description.trim(),
+          deadline: deadline || undefined,
+        };
+      }
+
+      const result = await TasksService.createTask(payload);
+      console.log("Create task result:", result);
+
+      // On success, navigate back to tasks list
+      router.back();
+    } catch (e: any) {
+      console.error("Failed to create task:", e);
+      setError(e?.message || "Failed to create task. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
   };
+
+  if (loadingUser) {
+    return <div>Checking permissions...</div>;
+  }
+
+  if (!isAdmin) {
+    return (
+      <div className="p-4">
+        <h1 className="text-xl font-bold">Add new Tasks</h1>
+        <div className="text-red-600 mt-4">Only admins can create tasks.</div>
+      </div>
+    );
+  }
 
   return (
     <div className="add-task-page h-1000">
@@ -26,6 +116,7 @@ export default function AddTaskPage() {
         <h1 className="text-xl font-bold">Add new Tasks</h1>
       </div>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {error && <div className="text-red-600">{error}</div>}
         <div>
           <label htmlFor="deadline">Deadline</label>
           <Input
@@ -33,7 +124,7 @@ export default function AddTaskPage() {
             id="deadline"
             value={deadline}
             onChange={(e) => setDeadline(e.target.value)}
-            required
+            required={false}
             className="h-11"
           />
         </div>
@@ -67,9 +158,10 @@ export default function AddTaskPage() {
         </div>
         <button
           type="submit"
+          disabled={submitting}
           className="bg-blue-600 text-white py-2 px-4 rounded"
         >
-          Submit
+          {submitting ? "Submitting..." : "Submit"}
         </button>
       </form>
     </div>
