@@ -30,7 +30,7 @@ export class CreateTaskDto {
 
   // For convenience the frontend should pass a division name (e.g. "BACKEND") instead of UUID
   @IsString()
-  @IsNotEmpty()
+  @IsOptional()
   division: string;
 }
 
