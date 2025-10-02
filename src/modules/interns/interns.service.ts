@@ -33,7 +33,36 @@ export class InternsService {
     }
 
     if (division_id) {
-      query = query.eq('division_id', division_id);
+      const maybe = String(division_id).trim();
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      let resolvedDivisionId: string | undefined;
+      if (uuidRegex.test(maybe)) {
+        resolvedDivisionId = maybe;
+      } else {
+        const { data: divisions, error: divErr } = await this.supabaseService
+          .getClient(true)
+          .from('divisions')
+          .select('id,name')
+          .ilike('name', maybe);
+        if (divErr) throw divErr;
+        if (divisions && divisions.length === 1) resolvedDivisionId = divisions[0].id;
+        else if (divisions && divisions.length > 1) {
+          const exact = divisions.find((d: any) => d.name.toLowerCase() === maybe.toLowerCase());
+          if (exact) resolvedDivisionId = exact.id;
+          else throw new Error('Multiple divisions matched the provided division name; please provide a division UUID');
+        } else {
+          const { data: divisions2, error: divErr2 } = await this.supabaseService
+            .getClient(true)
+            .from('divisions')
+            .select('id,name')
+            .ilike('name', `%${maybe}%`);
+          if (divErr2) throw divErr2;
+          if (divisions2 && divisions2.length === 1) resolvedDivisionId = divisions2[0].id;
+          else if (divisions2 && divisions2.length > 1) throw new Error('Multiple divisions matched the provided division name; please provide a division UUID');
+          else throw new Error('Division not found');
+        }
+      }
+      query = query.eq('division_id', resolvedDivisionId || division_id);
     }
 
     if (status) {

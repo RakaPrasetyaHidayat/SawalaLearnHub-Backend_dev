@@ -11,6 +11,12 @@ export class UpdateUserStatusDto {
   role: UserRole;
 }
 
+export class AcceptUserDto {
+  @IsEnum(UserRole)
+  @IsOptional()
+  role?: UserRole; // default SISWA if not provided
+}
+
 export class UpdateUserProfileDto {
   @IsString()
   @IsNotEmpty()

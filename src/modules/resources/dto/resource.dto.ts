@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, IsEnum, IsNumber, IsUrl, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsString, IsEnum, IsNumber, IsUrl, IsOptional, IsUUID } from 'class-validator';
 import { ResourceType } from '../../../common/enums';
 import { Type } from 'class-transformer';
 
@@ -19,18 +19,19 @@ export class CreateResourceDto {
   @IsNotEmpty()
   type!: ResourceType;
 
-  @IsNumber()
   @IsOptional()
+  @Type(() => Number)   // pastikan dari string -> number
+  @IsNumber()
   channel_year?: number;
 
-  // accept 'angkatan' from frontend (string) and map in service to channel_year
-  // angkatan stored as integer in users table; accept numeric value
-  @IsNumber()
+  // menerima 'angkatan' dari frontend (string/number), di service bisa map ke channel_year
   @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
   angkatan?: number;
 
-  @IsString()
   @IsOptional()
+  @IsUUID()
   division_id?: string;
 }
 
@@ -55,7 +56,7 @@ export class UpdateResourceDto {
   @IsOptional()
   channel_year?: number;
 
-  @IsString()
+  @IsUUID()
   @IsOptional()
   division_id?: string;
 }
@@ -81,6 +82,6 @@ export class GetResourcesQueryDto {
   limit?: number = 10;
 
   @IsOptional()
-  @IsString()
+  @IsUUID()
   division_id?: string;
 }

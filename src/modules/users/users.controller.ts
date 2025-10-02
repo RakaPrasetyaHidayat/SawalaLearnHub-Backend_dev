@@ -2,6 +2,7 @@ import {
   Controller,
   Get,
   Patch,
+  Put,
   Delete,
   Param,
   Body,
@@ -9,6 +10,7 @@ import {
   Query,
   HttpException,
   HttpStatus,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -16,7 +18,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole, UserStatus } from '../../common/enums';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { UpdateUserStatusDto, SearchUsersDto } from './dto/user.dto';
+import { UpdateUserStatusDto, SearchUsersDto, AcceptUserDto } from './dto/user.dto';
 import { GetUsersByDivisionDto } from './dto/user-division.dto';
 
 @Controller('users')
@@ -25,7 +27,7 @@ export class UsersController {
 
   @Get('division/:division_id')
   @UseGuards(JwtAuthGuard)
-  async getUsersByDivision(@Param('division_id') division_id: string) {
+  async getUsersByDivision(@Param('division_id', new ParseUUIDPipe()) division_id: string) {
     return await this.usersService.getUsersByDivision(division_id);
   }
 
@@ -91,6 +93,12 @@ export class UsersController {
             method: 'PATCH',
             url: '/api/users/:id/status',
             description: 'Update user status (Admin only)',
+            auth: 'Required (Admin)'
+          },
+          acceptUser: {
+            method: 'PATCH',
+            url: '/api/users/:id/accept',
+            description: 'Accept user (set APPROVED and optional role, default SISWA)',
             auth: 'Required (Admin)'
           },
           deleteUser: {
@@ -249,7 +257,9 @@ export class UsersController {
     }
   }
 
+  // Support both PATCH and PUT for frontend compatibility
   @Patch(':id/status')
+  @Put(':id/status')
   @Roles(UserRole.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
   async updateUserStatus(
@@ -270,6 +280,30 @@ export class UsersController {
           status: 'error',
           message: error.message,
         },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  // New: Accept user (set APPROVED and role default SISWA)
+  @Patch(':id/accept')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async acceptUser(
+    @Param('id') id: string,
+    @Body() body: AcceptUserDto,
+    @GetUser('sub') adminId: string,
+  ) {
+    try {
+      const user = await this.usersService.acceptUser(id, adminId, body?.role);
+      return {
+        status: 'success',
+        message: 'User accepted successfully',
+        data: user,
+      };
+    } catch (error: any) {
+      throw new HttpException(
+        { status: 'error', message: error.message },
         HttpStatus.BAD_REQUEST,
       );
     }

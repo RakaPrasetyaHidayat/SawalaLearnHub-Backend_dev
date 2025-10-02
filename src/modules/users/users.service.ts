@@ -199,6 +199,33 @@ export class UsersService {
     return updatedUser;
   }
 
+  // Convenience: accept user -> APPROVED and set role (default SISWA)
+  async acceptUser(userId: string, adminId: string, role?: UserRole) {
+    await this.ensureAdmin(adminId);
+
+    const { data: user, error: userError } = await this.supabaseService
+      .getClient()
+      .from('users')
+      .select('id')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !user) {
+      throw new NotFoundException('User not found');
+    }
+
+    const { data: updatedUser, error } = await this.supabaseService
+      .getClient()
+      .from('users')
+      .update({ status: UserStatus.APPROVED, role: role ?? UserRole.SISWA })
+      .eq('id', userId)
+      .select()
+      .single();
+
+    if (error) throw error;
+    return updatedUser;
+  }
+
   async deleteRejectedUser(userId: string, adminId: string) {
     await this.ensureAdmin(adminId);
 

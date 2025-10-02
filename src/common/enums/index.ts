@@ -19,7 +19,7 @@ export enum TaskStatus {
 export enum SubmissionStatus {
   SUBMITTED = 'SUBMITTED',
   OVERDUE = 'OVERDUE',
-  REVISED = 'REVISED',
+  REVISION = 'REVISION',
   APPROVED = 'APPROVED',
 }
 

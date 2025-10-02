@@ -1,6 +1,6 @@
 import 'module-alias/register';
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe, RequestMethod } from '@nestjs/common';
+import { ValidationPipe, RequestMethod, VersioningType } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -34,11 +34,17 @@ export async function bootstrap(): Promise<NestExpressApplication> {
       console.log('Configuring CORS...');
       const corsOptions = {
         origin: function (origin, callback) {
+          console.log('CORS request from origin:', origin);
+          
           // Allow requests with no origin (like mobile apps or curl requests)
-          if (!origin) return callback(null, true);
+          if (!origin) {
+            console.log('No origin - allowing request');
+            return callback(null, true);
+          }
           
           // In development, allow all origins
-          if (process.env.NODE_ENV === 'development') {
+          if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV !== 'production') {
+            console.log('Development mode - allowing all origins');
             return callback(null, true);
           }
           
@@ -46,6 +52,12 @@ export async function bootstrap(): Promise<NestExpressApplication> {
           const allowedOrigins = [
             'http://localhost:3000',
             'http://localhost:3001',
+            'http://localhost:5173', // Vite default port
+            'http://localhost:5174', // Vite alternative port
+            'http://localhost:4173', // Vite preview port
+            'http://127.0.0.1:3000',
+            'http://127.0.0.1:3001',
+            'http://127.0.0.1:5173',
             'https://localhost:3000',
             'https://localhost:3001',
             'https://learnhub-be-dev.vercel.app',
@@ -54,6 +66,7 @@ export async function bootstrap(): Promise<NestExpressApplication> {
             // Add your frontend domain here
             /^https:\/\/.*\.vercel\.app$/,
             /^http:\/\/localhost:\d+$/,
+            /^http:\/\/127\.0\.0\.1:\d+$/,
             /^https:\/\/localhost:\d+$/
           ];
           
@@ -67,6 +80,7 @@ export async function bootstrap(): Promise<NestExpressApplication> {
           });
           
           if (isAllowed) {
+            console.log('Origin allowed:', origin);
             callback(null, true);
           } else {
             console.log('CORS blocked origin:', origin);
@@ -122,6 +136,18 @@ export async function bootstrap(): Promise<NestExpressApplication> {
           { path: 'favicon.ico', method: RequestMethod.GET },
           { path: 'favicon.png', method: RequestMethod.GET },
         ]
+      });
+
+      // Disable URI versioning to keep endpoints as /api/... (no /v1 prefix)
+      console.log('Disabling API versioning to keep clean /api routes');
+      // Compatibility shim: transparently rewrite incoming /api/v1/* to /api/* so old clients still work
+      app.use((req, _res, next) => {
+        if (req.url.startsWith('/api/v1/')) {
+          req.url = req.url.replace('/api/v1/', '/api/');
+        } else if (req.url === '/api/v1') {
+          req.url = '/api';
+        }
+        next();
       });
 
       // Global pipes
