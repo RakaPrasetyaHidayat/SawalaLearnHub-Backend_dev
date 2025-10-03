@@ -86,11 +86,15 @@ function pickUnread(obj: any): boolean {
 export class TasksService {
   // Simple createTask: always POST JSON to /api/tasks (apiFetcher will use NEXT_PUBLIC_API_URL)
   static async createTask(payload: any): Promise<any> {
-  return apiFetcher(`/api/tasks`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    const isFormData = typeof FormData !== "undefined" && payload instanceof FormData;
+    const options: RequestInit = { method: "POST" };
+    if (isFormData) {
+      options.body = payload as any; // Let browser set multipart boundary
+    } else {
+      options.headers = { "Content-Type": "application/json" };
+      options.body = JSON.stringify(payload ?? {});
+    }
+    return apiFetcher(`/api/tasks`, options);
   }
 
   static async submitTask(taskId: string | number, payload: any): Promise<any> {
