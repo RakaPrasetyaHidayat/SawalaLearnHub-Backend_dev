@@ -17,12 +17,10 @@ function createHeaders(request: NextRequest) {
   return headers;
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { userId: string } }
-) {
+export async function GET(request: NextRequest, context: any) {
   try {
-    const { userId } = params;
+    const params = context?.params || {};
+    const userId = params.userId as string | undefined;
     
     if (!userId) {
       return NextResponse.json(

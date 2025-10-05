@@ -13,12 +13,10 @@ function extractMessage(data: unknown): string | undefined {
   return undefined;
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: NextRequest, context: any) {
   try {
-    const userId = params.id;
+    const params = context?.params || {};
+    const userId = params.id as string | undefined;
     if (!userId) {
       return NextResponse.json(
         { status: "error", message: "User ID is required" },

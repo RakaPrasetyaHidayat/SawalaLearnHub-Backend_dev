@@ -17,12 +17,10 @@ function createHeaders(request: NextRequest, contentType?: string) {
   return headers;
 }
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { postId: string } }
-) {
+export async function GET(request: NextRequest, context: any) {
   try {
-    const { postId } = params;
+    const params = context?.params || {};
+    const postId = params.postId as string | undefined;
     
     if (!postId) {
       return NextResponse.json(
@@ -72,10 +70,9 @@ export async function GET(
   }
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { postId: string } }
-) {
+export async function PUT(request: NextRequest, context: any) {
+  const params = context?.params || {};
+  const postId = params.postId as string | undefined;
   try {
     const { postId } = params;
     
@@ -129,10 +126,9 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { postId: string } }
-) {
+export async function DELETE(request: NextRequest, context: any) {
+  const params = context?.params || {};
+  const postId = params.postId as string | undefined;
   try {
     const { postId } = params;
     

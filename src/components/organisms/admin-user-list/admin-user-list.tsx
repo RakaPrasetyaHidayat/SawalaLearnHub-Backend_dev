@@ -97,7 +97,7 @@ export function AdminUserList() {
     displayPagination,
   ]);
 
-  const handleUserClick = (user: UserListItemProps) => {
+  const handleUserClick = (user: any) => {
     // Navigate to user detail page with user data as query params for fallback
     const queryParams = new URLSearchParams({
       name: user.name || "",
@@ -106,7 +106,7 @@ export function AdminUserList() {
       division: user.division || "",
       status: user.status || "",
       avatarSrc: user.avatarSrc || "",
-      angkatan: user.angkatan?.toString() || "",
+      angkatan: (user.angkatan && user.angkatan.toString) ? user.angkatan.toString() : "",
     });
 
     router.push(`/admin/users/${user.id}?${queryParams.toString()}`);

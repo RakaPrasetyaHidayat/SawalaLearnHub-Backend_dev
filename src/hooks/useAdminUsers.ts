@@ -78,7 +78,7 @@ export function useAdminUsers(
   const updateUserStatusHandler = useCallback(
     async (userId: string | number, status: string) => {
       try {
-        const updatedUser = await updateUserStatus(userId, status);
+  const updatedUser = await updateUserStatus(String(userId), status);
         setUsers((prevUsers) =>
           prevUsers.map((user) =>
             user.id === userId ? { ...user, status: status as any } : user
@@ -165,7 +165,7 @@ export function usePendingUsers() {
 
   const approveUser = useCallback(async (userId: string | number) => {
     try {
-      const updatedUser = await updateUserStatus(userId, "Approved");
+  const updatedUser = await updateUserStatus(String(userId), "Approved");
       setPendingUsers((prevUsers) =>
         prevUsers.filter((user) => user.id !== userId)
       );
@@ -178,7 +178,7 @@ export function usePendingUsers() {
 
   const rejectUser = useCallback(async (userId: string | number) => {
     try {
-      const updatedUser = await updateUserStatus(userId, "Rejected");
+  const updatedUser = await updateUserStatus(String(userId), "Rejected");
       setPendingUsers((prevUsers) =>
         prevUsers.filter((user) => user.id !== userId)
       );

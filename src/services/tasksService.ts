@@ -98,11 +98,65 @@ export class TasksService {
   }
 
   static async submitTask(taskId: string | number, payload: any): Promise<any> {
-  return apiFetcher(`/api/tasks/${taskId}/submit`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    });
+    try {
+      // Validate inputs
+      if (!taskId) {
+        throw new Error("Task ID is required");
+      }
+      
+      if (!payload || ((!payload.files || payload.files.length === 0) && !payload.description?.trim())) {
+        throw new Error("Please provide either files or description");
+      }
+      
+      // Check if payload contains files
+      const hasFiles = payload.files && payload.files.length > 0;
+      
+      if (hasFiles) {
+        // Use FormData for file uploads
+        const formData = new FormData();
+        formData.append("description", payload.description || "");
+        
+        // Append each file - use 'file' as the field name to match common API expectations
+        payload.files.forEach((file: File, index: number) => {
+          formData.append("file", file);
+        });
+        
+        return await apiFetcher(`/api/tasks/${taskId}/submit`, {
+          method: "POST",
+          body: formData, // Let browser set Content-Type with boundary
+        });
+      } else {
+        // Use JSON for text-only submissions
+        return await apiFetcher(`/api/tasks/${taskId}/submit`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            description: payload.description || ""
+          }),
+        });
+      }
+    } catch (error: any) {
+      console.error("TasksService.submitTask error:", error);
+      
+      // Provide user-friendly error messages
+      if (error?.status === 401) {
+        throw new Error("Please login again to submit your task");
+      } else if (error?.status === 403) {
+        throw new Error("You don't have permission to submit this task");
+      } else if (error?.status === 404) {
+        throw new Error("Task not found. Please check if the task still exists");
+      } else if (error?.status === 413) {
+        throw new Error("File size too large. Please reduce file size and try again");
+      } else if (error?.status >= 500) {
+        throw new Error("Server error. Please try again later");
+      } else if (error?.message?.includes("timeout")) {
+        throw new Error("Request timeout. Please check your connection and try again");
+      } else if (error?.message) {
+        throw error; // Re-throw with original message
+      } else {
+        throw new Error("Failed to submit task. Please try again");
+      }
+    }
   }
 
   static async updateUserTaskStatus(
@@ -215,5 +269,94 @@ export class TasksService {
         raw,
       } as Task;
     });
+  }
+
+  static async getTaskById(taskId: string | number): Promise<any> {
+    const response = await apiFetcher(`/api/tasks/${taskId}`);
+    // Handle the API response structure where actual data is nested under 'data' property
+    const data = response?.data || response;
+    return {
+      id: pickId(data),
+      title: pickTitle(data),
+      description: data.description || "",
+      division: mapDivisionSlug(pickDivisionRaw(data)),
+      rawDivision: pickDivisionRaw(data),
+      deadline: pickDeadline(data),
+      channel_year: data.channel_year || data.year,
+    };
+  }
+
+  static async getTaskSubmissionById(submissionId: string | number): Promise<any> {
+    try {
+      const response = await apiFetcher(`/api/tasks/submissions/${submissionId}`);
+      return response?.data || response;
+    } catch (error) {
+      console.error("Error fetching task submission:", error);
+      throw error;
+    }
+  }
+
+  // Get task submission for current user by taskId (showing description + file_urls)
+  static async getTaskSubmissionByTaskId(taskId: string | number): Promise<any> {
+    try {
+      const response = await apiFetcher(`/api/tasks/${taskId}/submission`);
+
+      if (response?.status === "success" && response.data) {
+        return response.data; // Contains id, task_id, user_id, description, file_urls, etc.
+      }
+
+      throw new Error("Submission not found or invalid response");
+    } catch (error: any) {
+      console.error("Error fetching task submission by taskId:", error);
+
+      // Handle 404 specifically for no submission found
+      if (error?.status === 404) {
+        throw new Error("No submission found for this task");
+      }
+
+      throw error;
+    }
+  }
+
+  // Update submission status (admin only)
+  static async updateSubmissionStatus(
+    taskId: string | number,
+    userId: string | number,
+    status: string,
+    feedback?: string
+  ): Promise<any> {
+    try {
+      const body: any = { status };
+      if (feedback) {
+        body.feedback = feedback;
+      }
+
+      const response = await apiFetcher(`/api/tasks/${taskId}/users/${userId}/status`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+
+      if (response?.status === "success") {
+        return response;
+      }
+
+      throw new Error("Failed to update submission status");
+    } catch (error: any) {
+      console.error("Error updating submission status:", error);
+
+      // Provide user-friendly error messages
+      if (error?.status === 401) {
+        throw new Error("Authentication required. Please login as admin.");
+      } else if (error?.status === 403) {
+        throw new Error("Admin access required to update submission status.");
+      } else if (error?.status === 404) {
+        throw new Error("Submission not found.");
+      } else if (error?.message) {
+        throw error;
+      } else {
+        throw new Error("Failed to update submission status. Please try again.");
+      }
+    }
   }
 }

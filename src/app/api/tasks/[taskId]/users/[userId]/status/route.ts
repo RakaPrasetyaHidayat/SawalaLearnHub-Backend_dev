@@ -17,12 +17,11 @@ function createHeaders(request: NextRequest) {
   return headers;
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { taskId: string; userId: string } }
-) {
+export async function PUT(request: NextRequest, context: any) {
   try {
-    const { taskId, userId } = params;
+    const params = context?.params || {};
+    const taskId = params.taskId as string | undefined;
+    const userId = params.userId as string | undefined;
     
     if (!taskId || !userId) {
       return NextResponse.json(

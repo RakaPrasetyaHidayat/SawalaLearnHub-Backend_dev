@@ -17,11 +17,11 @@ function createHeaders(request: NextRequest) {
   return headers;
 }
 
-export async function PATCH(request: NextRequest, context: any) {
+export async function GET(request: NextRequest, context: any) {
   try {
     const params = context?.params || {};
     const taskId = params.taskId as string | undefined;
-    
+
     if (!taskId) {
       return NextResponse.json(
         { message: "Task ID parameter is required" },
@@ -29,18 +29,15 @@ export async function PATCH(request: NextRequest, context: any) {
       );
     }
 
-    const body = await request.json().catch(() => ({}));
-    const targetUrl = `${BASE_URL}/api/tasks/${taskId}/status`;
+    const targetUrl = `${BASE_URL}/api/tasks/${taskId}`;
     const headers = createHeaders(request);
-    
-    console.log("Update task status - Proxy URL:", targetUrl);
-    console.log("Update task status - Proxy Headers:", headers);
-    console.log("Update task status - Body:", body);
+
+    console.log("Get task by ID - Proxy URL:", targetUrl);
+    console.log("Get task by ID - Proxy Headers:", headers);
 
     const res = await fetch(targetUrl, {
-      method: "PATCH",
+      method: "GET",
       headers,
-      body: JSON.stringify(body),
     });
 
     const contentType = res.headers.get("content-type") || "";
@@ -51,21 +48,21 @@ export async function PATCH(request: NextRequest, context: any) {
 
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET,POST,OPTIONS,PATCH,PUT,DELETE",
+      "Access-Control-Allow-Methods": "GET,OPTIONS",
       "Access-Control-Allow-Headers": "Content-Type, Authorization",
     };
 
     if (!res.ok) {
-      const message = data && typeof data === "object" ? data.message || data.error : data || `Failed to update task status`;
+      const message = data && typeof data === "object" ? data.message || data.error : data || `Failed to get task ${taskId}`;
       console.warn("Backend error:", { status: res.status, message, data });
       return NextResponse.json({ message, data }, { status: res.status, headers: corsHeaders });
     }
 
-    console.log("Update task status response:", data);
+    console.log("Get task by ID response:", data);
     return NextResponse.json(data, { status: res.status, headers: corsHeaders });
   } catch (error) {
     console.warn("Proxy error:", error);
-    const message = error instanceof Error ? error.message : "Failed to update task status";
+    const message = error instanceof Error ? error.message : "Failed to get task";
     return NextResponse.json({ message }, { status: 500, headers: { "Access-Control-Allow-Origin": "*" } });
   }
 }
@@ -73,7 +70,7 @@ export async function PATCH(request: NextRequest, context: any) {
 export async function OPTIONS() {
   const headers = {
     "Access-Control-Allow-Origin": "*",
-    "Access-Control-Allow-Methods": "GET,POST,OPTIONS,PATCH,PUT,DELETE",
+    "Access-Control-Allow-Methods": "GET,OPTIONS",
     "Access-Control-Allow-Headers": "Content-Type, Authorization",
   };
   return NextResponse.json({}, { status: 204, headers });

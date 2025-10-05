@@ -10,8 +10,10 @@ type TaskDetailProps = {
   deadline: string;
   description: string;
   onOpen?: () => void;
-  onSubmit?: (payload: { files: File[]; description: string }) => void;
-  onShowSuccess?: () => void;
+  onSubmit?: (payload: { files: File[]; description: string }) => Promise<any>;
+  onShowSuccess?: (submissionData?: any) => void;
+  onShowError?: (error: string) => void;
+  onShowComments?: () => void;
   className?: string;
 };
 
@@ -22,11 +24,13 @@ export default function TaskDetail({
   onOpen,
   onSubmit,
   onShowSuccess,
+  onShowError,
   className = "",
 }: TaskDetailProps) {
   const [files, setFiles] = useState<File[]>([]);
   const [desc, setDesc] = useState("");
   const [error, setError] = useState<string | undefined>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     if (files.length > 0 || desc.trim()) {
@@ -40,14 +44,46 @@ export default function TaskDetail({
   function handleRemove(idx: number) {
     setFiles((prev) => prev.filter((_, i) => i !== idx));
   }
-  function handleSubmit() {
+  
+  async function handleSubmit() {
     if (files.length === 0 && !desc.trim()) {
       setError("Fill in at least one column");
       return;
     }
-    onSubmit?.({ files, description: desc });
-    if (onShowSuccess) {
-      onShowSuccess();
+
+    if (!onSubmit) return;
+
+    setIsSubmitting(true);
+    setError(undefined);
+
+    try {
+      const result = await onSubmit({ files, description: desc });
+      
+      // Jika berhasil, tampilkan hasil submission
+      if (onShowSuccess) {
+        onShowSuccess(result);
+      }
+    } catch (error: any) {
+      // Tampilkan error yang detail
+      let errorMessage = "Submit failed";
+      
+      if (error?.message) {
+        errorMessage = error.message;
+      } else if (error?.error) {
+        errorMessage = error.error;
+      } else if (error?.details) {
+        errorMessage = error.details;
+      } else if (typeof error === 'string') {
+        errorMessage = error;
+      }
+
+      setError(errorMessage);
+      
+      if (onShowError) {
+        onShowError(errorMessage);
+      }
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -99,10 +135,11 @@ export default function TaskDetail({
         </button>
         <button
           type="button"
-          className="h-9 px-4 bg-blue-600 text-white rounded-md text-sm"
+          className="h-9 px-4 bg-blue-600 text-white rounded-md text-sm disabled:bg-gray-400 disabled:cursor-not-allowed"
           onClick={handleSubmit}
+          disabled={isSubmitting}
         >
-          Submit now
+          {isSubmitting ? "Submitting..." : "Submit now"}
         </button>
       </div>
     </section>

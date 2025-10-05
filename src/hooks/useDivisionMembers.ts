@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { DivisionService } from "@/services/division";
 import { formatYearForAPI } from "@/hooks/useDivisions";
+import { getUsersByDivisionSafe } from "@/services/userService";
 
 export interface DivisionMemberVM {
   id: string | number;
@@ -26,10 +26,7 @@ export function useDivisionMembers(divisionId: string, yearParam?: string) {
       try {
         setLoading(true);
         setError(null);
-        const data = await DivisionService.getDivisionMembers(
-          divisionId,
-          apiYear
-        );
+        const data = await getUsersByDivisionSafe(divisionId, Number(apiYear));
         if (!active) return;
         setMembers(
           data.map((m) => ({

@@ -1,7 +1,26 @@
 "use client"
 
 import React, { useMemo, useState } from "react"
-import AccountRequestCard, { AccountRequest, AccountRole } from "@/components/molecules/account-request-card"
+
+// Temporary inline AccountRequestCard placeholder to satisfy build until the real component exists
+export type AccountRole = "student" | "employee" | "admin";
+export type AccountRequest = { id: string; name: string; email: string; requestedRole?: string };
+function AccountRequestCard({ request, onApprove, onReject }: { request: AccountRequest; onApprove: (id: string, role: AccountRole) => void; onReject: (id: string) => void }) {
+    return (
+        <div className="p-3 border rounded">
+            <div className="flex justify-between">
+                <div>
+                    <div className="font-medium">{request.name}</div>
+                    <div className="text-xs text-gray-500">{request.email}</div>
+                </div>
+                <div className="flex gap-2">
+                    <button onClick={() => onApprove(request.id, (request.requestedRole || 'student') as AccountRole)} className="px-2 py-1 bg-green-600 text-white rounded">Approve</button>
+                    <button onClick={() => onReject(request.id)} className="px-2 py-1 bg-red-600 text-white rounded">Reject</button>
+                </div>
+            </div>
+        </div>
+    )
+}
 
 export default function AdminRequestsSection() {
     const [requests] = useState<AccountRequest[]>([

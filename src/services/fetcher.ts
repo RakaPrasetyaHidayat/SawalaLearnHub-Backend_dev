@@ -44,7 +44,7 @@ export function removeAuthToken() {
   }
 }
 
-export async function apiFetcher(path: string, options: RequestInit = {}) {
+export async function apiFetcher<T = any>(path: string, options: RequestInit = {}): Promise<T> {
   const url = `${API_BASE}${path}`;
   console.log("Fetching:", url);
 
@@ -81,9 +81,10 @@ export async function apiFetcher(path: string, options: RequestInit = {}) {
     // Try to parse JSON, fallback to text
     const text = await res.text().catch(() => "");
     try {
-      return text ? JSON.parse(text) : null;
+      // Let the caller's generic drive the return type; parse JSON if available
+      return (text ? JSON.parse(text) : null) as unknown as T;
     } catch (e) {
-      return text;
+      return (text as unknown) as T;
     }
   } catch (error: any) {
     clearTimeout(timeoutId);

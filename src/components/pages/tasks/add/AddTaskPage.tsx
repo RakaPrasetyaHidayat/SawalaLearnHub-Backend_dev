@@ -10,6 +10,8 @@ export default function AddTaskPage() {
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [division, setDivision] = useState("");
+  const [angkatan, setAngkatan] = useState("");
   const [loadingUser, setLoadingUser] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -58,6 +60,16 @@ export default function AddTaskPage() {
       return;
     }
 
+    if (!division) {
+      setError("Division is required");
+      return;
+    }
+
+    if (!angkatan.trim()) {
+      setError("Angkatan is required");
+      return;
+    }
+
     try {
       setSubmitting(true);
 
@@ -68,6 +80,8 @@ export default function AddTaskPage() {
         fd.append("title", title.trim());
         fd.append("description", description.trim());
         if (deadline) fd.append("deadline", deadline);
+        fd.append("division_id", division);
+        fd.append("channel_year", angkatan);
         fd.append("file", file);
         payload = fd;
       } else {
@@ -75,6 +89,8 @@ export default function AddTaskPage() {
           title: title.trim(),
           description: description.trim(),
           deadline: deadline || undefined,
+          division_id: division,
+          channel_year: angkatan,
         };
       }
 
@@ -85,7 +101,7 @@ export default function AddTaskPage() {
       router.back();
     } catch (e: any) {
       console.error("Failed to create task:", e);
-      setError(e?.message || "Failed to create task. Please try again.");
+      setError("Submit failed");
     } finally {
       setSubmitting(false);
     }
@@ -147,6 +163,33 @@ export default function AddTaskPage() {
             onChange={(e) => setDescription(e.target.value)}
             required
           ></textarea>
+        </div>
+        <div>
+          <label htmlFor="division">Division</label>
+          <select
+            id="division"
+            value={division}
+            onChange={(e) => setDivision(e.target.value)}
+            required
+            className="w-full p-2 border border-gray-300 rounded"
+          >
+            <option value="">Select Division</option>
+            <option value="0e5c4601-d68a-45d0-961f-b11e0472a71b">DevOps</option>
+            <option value="3eb66585-1275-4482-8342-0bb2d0d2188e">Frontend</option>
+            <option value="417faa41-877e-4fe1-b2d4-b15f2ecdbfde">UI/UX</option>
+            <option value="479762a6-10bd-4d9f-973a-648596489ff8">Backend</option>
+          </select>
+        </div>
+        <div>
+          <label htmlFor="angkatan">Angkatan</label>
+          <Input
+            type="number"
+            id="angkatan"
+            value={angkatan}
+            onChange={(e) => setAngkatan(e.target.value)}
+            required
+            className="h-11"
+          />
         </div>
         <div>
           <label htmlFor="file">File</label>

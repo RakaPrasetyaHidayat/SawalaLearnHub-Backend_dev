@@ -233,11 +233,12 @@ export class DivisionService {
 
       const users = tryExtractArray(data) || [];
 
+      // Normalize division strings conservatively. Do NOT strip "dev" to preserve "devops".
       const normalize = (s: string) =>
         String(s)
           .toLowerCase()
           .replace(/[^a-z0-9]/g, "")
-          .replace(/designer|dev|developer/g, "");
+          .replace(/designer|developer/g, "");
       const divIdNorm = normalize(divisionId);
 
       const allowedStatuses = new Set([

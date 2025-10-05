@@ -12,7 +12,7 @@ export interface UseDivisionsResult {
 /**
  * Custom hook to fetch divisions with member count
  */
-export function useDivisions(year: string, status: string = 'approved'): UseDivisionsResult {
+export function useDivisions(year: string, status: string = 'all'): UseDivisionsResult {
   const [divisions, setDivisions] = useState<Division[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)

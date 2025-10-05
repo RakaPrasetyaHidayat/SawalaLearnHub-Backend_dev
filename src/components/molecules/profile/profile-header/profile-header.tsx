@@ -12,6 +12,10 @@ import { getAuthState } from "@/utils/auth";
 
 interface ProfileHeaderProps {
   onEditProfile?: () => void;
+  username?: string;
+  role?: string;
+  institution?: string;
+  profileImage?: string;
 }
 
 interface UserData {

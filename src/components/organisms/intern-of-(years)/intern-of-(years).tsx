@@ -10,17 +10,22 @@ import {
   formatYearForAPI,
   extractYearFromFormatted,
 } from "@/hooks/useDivisions";
+import { fetchDivisionCounts } from '@/services/userService';
+import { getAuthToken } from '@/services/fetcher';
 
 interface InternOfYearsProps {
   year?: string; // Optional prop to specify year, defaults to current year
+  initialCounts?: Record<string, number> | null;
 }
 
-export function InternOfYears({ year }: InternOfYearsProps) {
+export function InternOfYears({ year, initialCounts = null }: InternOfYearsProps) {
   const router = useRouter();
   const currentYear = useCurrentInternYear();
   const targetYear = formatYearForAPI(year || currentYear);
   const { divisions, loading, error, refetch, retryCount } =
     useDivisions(targetYear);
+  const [overrideCounts, setOverrideCounts] = React.useState<Record<string, number>>(() => (initialCounts ? initialCounts : {}));
+  const [proxyStatus, setProxyStatus] = React.useState<'ok' | 'unauthorized' | 'unavailable' | null>(null);
   const formatMemberCount = useFormatMemberCount();
   const displayYear = extractYearFromFormatted(targetYear);
 
@@ -47,6 +52,94 @@ export function InternOfYears({ year }: InternOfYearsProps) {
   const handleRetry = () => {
     refetch();
   };
+
+  // Try to fetch live counts from the API on the client as a best-effort.
+  // This will succeed when the user has a valid auth token in localStorage
+  // (apiFetcher attaches it). Failures will be logged for debugging.
+  React.useEffect(() => {
+    let mounted = true;
+    (async () => {
+      try {
+        if (!divisions || divisions.length === 0) return;
+        const ids = divisions.map(d => d.id);
+        console.log('Attempting client-side fetchDivisionCounts for', ids, 'year', targetYear, 'hasToken=', !!getAuthToken());
+
+        // Prefer server proxy if available on this app
+        let countsResult: Record<string, any> | null = null;
+        try {
+          const proxyUrl = `/api/proxy/divisions?year=${encodeURIComponent(extractYearFromFormatted(targetYear))}`;
+          const r = await fetch(proxyUrl);
+          if (r.ok) {
+            const j = await r.json();
+            if (j?.ok && j.counts) {
+              countsResult = j.counts;
+              setProxyStatus('ok');
+            } else if (j?.counts) {
+              // proxy returned but had errors per-division
+              // mark unauthorized if any division reports unauthorized
+              const anyUnauth = Object.values(j.counts).some((v: any) => v && v.error === 'unauthorized');
+              setProxyStatus(anyUnauth ? 'unauthorized' : 'unavailable');
+              countsResult = j.counts;
+            } else {
+              setProxyStatus('unavailable');
+            }
+          } else {
+            setProxyStatus('unavailable');
+          }
+        } catch (e) {
+          // proxy not available or failed — we'll fallback to direct client fetch
+          setProxyStatus('unavailable');
+        }
+
+        let counts = countsResult ?? null;
+        // If proxy unavailable, but user has token, attempt direct backend fetch using exact slugs
+        if (!counts && typeof window !== 'undefined' && !!getAuthToken()) {
+          try {
+            const slugMap: Record<string,string> = { all: 'all', frontend: 'frontend', backend: 'backend', uiux: 'UI_UX', devops: 'devops' };
+            const slugs = ids.map(id => slugMap[id] ?? id);
+            console.log('Attempting direct backend fetch with token for slugs', slugs);
+            const raw = await (await import('@/services/userService')).fetchAllDivisionData(slugs, extractYearFromFormatted(targetYear));
+            // Normalize counts from raw responses
+            const normalized: Record<string, number | { error: string }> = {};
+            for (const k of Object.keys(raw)) {
+              const r = raw[k];
+              if (r && typeof r.status === 'number' && r.status === 200) {
+                const body = r.body;
+                // determine count from common shapes
+                const cnt = Array.isArray(body) ? body.length : Array.isArray(body?.data) ? body.data.length : Array.isArray(body?.users) ? body.users.length : 0;
+                // map back to division id
+                const idKey = k === 'UI_UX' ? 'uiux' : (k);
+                normalized[idKey] = cnt;
+              } else if (r && r.status === 401) {
+                const idKey = k === 'UI_UX' ? 'uiux' : (k);
+                normalized[idKey] = { error: 'unauthorized' };
+              } else {
+                const idKey = k === 'UI_UX' ? 'uiux' : (k);
+                normalized[idKey] = 0;
+              }
+            }
+            counts = normalized;
+            setProxyStatus('ok');
+          } catch (e) {
+            console.warn('Direct backend fetch failed:', e);
+          }
+        }
+
+        if (!counts) counts = await fetchDivisionCounts(ids, extractYearFromFormatted(targetYear));
+        if (!mounted) return;
+        console.log('fetchDivisionCounts result:', counts);
+        const normalized: Record<string, number> = {};
+        for (const k of Object.keys(counts)) {
+          const v = counts[k];
+          if (typeof v === 'number') normalized[k] = v;
+        }
+        setOverrideCounts(normalized);
+      } catch (e) {
+        console.warn('fetchDivisionCounts failed (client):', e);
+      }
+    })();
+    return () => { mounted = false; };
+  }, [divisions, targetYear]);
 
   if (loading) {
     return (
@@ -109,6 +202,16 @@ export function InternOfYears({ year }: InternOfYearsProps) {
 
   return (
     <div className="h-[700px]">
+      {proxyStatus === 'unauthorized' && (
+        <div className="mb-3 text-center text-sm text-yellow-700 bg-yellow-50 p-2 rounded">
+          Proxy available but unauthorized. Set server token (LEARNHUB_SERVER_TOKEN) or ensure users are logged in to view counts.
+        </div>
+      )}
+      {proxyStatus === 'unavailable' && (
+        <div className="mb-3 text-center text-sm text-gray-700 bg-gray-50 p-2 rounded">
+          Proxy unavailable — falling back to direct API calls (may require login).
+        </div>
+      )}
       {/* Display current year info */}
       <div className="mb-4 text-center">
         <p className="text-sm text-gray-600">
@@ -124,7 +227,7 @@ export function InternOfYears({ year }: InternOfYearsProps) {
           logo={division.logo}
           logoAlt={division.logoAlt}
           title={division.name}
-          members={formatMemberCount(division.memberCount)}
+          members={formatMemberCount(overrideCounts[division.id] ?? division.memberCount)}
           logoSize={48}
           chevronSize={22}
           onClick={() => handleCardClick(division.name)}

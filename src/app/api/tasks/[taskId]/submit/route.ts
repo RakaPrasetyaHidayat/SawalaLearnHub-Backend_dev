@@ -17,12 +17,10 @@ function createHeaders(request: NextRequest) {
   return headers;
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { taskId: string } }
-) {
+export async function POST(request: NextRequest, context: any) {
   try {
-    const { taskId } = params;
+    const params = context?.params || {};
+    const taskId = params.taskId as string | undefined;
     
     if (!taskId) {
       return NextResponse.json(

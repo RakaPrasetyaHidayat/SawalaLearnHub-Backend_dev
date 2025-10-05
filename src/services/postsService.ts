@@ -1,7 +1,7 @@
 import { apiFetcher } from "./fetcher";
 
 export interface Post {
-  id: string | number;
+  id: string;
   title: string;
   content?: string;
   author?: string;
@@ -28,7 +28,7 @@ export class PostsService {
       console.log("Parsed posts items:", items);
 
       return items.map((raw) => ({
-        id: raw.id || raw._id || Math.random().toString(36).slice(2),
+        id: String(raw.id || raw._id || Math.random().toString(36).slice(2)),
         title: raw.title || raw.name || "Untitled Post",
         content: raw.content || raw.description || raw.body,
         author: raw.author || raw.createdBy || raw.user?.name,
@@ -113,6 +113,11 @@ export async function listPosts(opts?: { page?: number; limit?: number }) {
   // Basic wrapper that returns { items, total, page } shape expected by callers
   const items = await PostsService.getAllPosts();
   return { items, total: items.length, page: opts?.page || 1 };
+}
+
+// Compatibility: some callsites expect listMyPosts
+export async function listMyPosts(opts?: { page?: number; limit?: number }) {
+  return listPosts(opts);
 }
 
 export async function createPost(data: { content: string; [key: string]: any }) {

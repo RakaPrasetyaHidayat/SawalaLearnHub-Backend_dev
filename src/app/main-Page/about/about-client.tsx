@@ -4,7 +4,9 @@ import { useSearchParams } from 'next/navigation'
 import Image from 'next/image'
 import { InternOfYears } from '@/components/organisms/intern-of-(years)'
 
-export function AboutClient() {
+interface AboutClientProps { initialCounts?: Record<string, number> | null }
+
+export function AboutClient({ initialCounts = null }: AboutClientProps) {
   const searchParams = useSearchParams()
   const year = searchParams.get('year') || '2025'
   
@@ -26,7 +28,7 @@ export function AboutClient() {
         </div>
       </div>
       <div className='space-y-3 p-4'>
-        <InternOfYears year={formattedYear} />
+          <InternOfYears year={formattedYear} initialCounts={initialCounts} />
       </div>
     </div>
   )
