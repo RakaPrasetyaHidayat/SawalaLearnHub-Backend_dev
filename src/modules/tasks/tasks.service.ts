@@ -125,8 +125,10 @@ export class TasksService extends BaseService {
           : (createTaskDto.angkatan ? Number(createTaskDto.angkatan) : null),
         created_by: adminId,
         division_id: resolvedDivisionId,
-        // store file url(s) in file_urls as an array when available
-        file_urls: fileUrl ? [fileUrl] : null,
+        // store file url(s) as text (varchar) to match DB schema; join multiple with newline
+        file_urls: fileUrl ? fileUrl : null,
+        // default task status stored in 'status' (submission_status enum) column on tasks table
+        status: SubmissionStatus.ON_PROGRES,
       };
 
       // Use admin (service-role) client for insertion to bypass RLS for server-side admin actions
@@ -150,27 +152,184 @@ export class TasksService extends BaseService {
     }
   }
 
-  async submitTask(taskId: string, userId: string, submitTaskDto: SubmitTaskDto) {
+  async submitTask(taskId: string, userId: string, submitTaskDto: Partial<SubmitTaskDto> = {}, file?: Express.Multer.File) {
     try {
+      console.log('[TasksService.submitTask] Starting submission:', { taskId, userId, submitTaskDto, hasFile: !!file });
+      
       // Accept either UUID or readable identifier (title). Resolve to UUID when necessary
       const resolvedTaskId = await this.resolveTaskId(taskId);
+      console.log('[TasksService.submitTask] Resolved task ID:', resolvedTaskId);
 
-      const result = await this.callRpc('submit_task', {
-        p_task_id: resolvedTaskId,
-        p_user_id: userId,
-        p_content: submitTaskDto.submission_url + '\n' + (submitTaskDto.notes || '')
-      });
+      const adminClient = this.supabaseService.getClient(true);
 
-      return {
-        status: 'success',
-        message: 'Task submitted successfully',
-        data: result
-      };
+      // Check if user has already submitted this task
+      const { data: existingSubmission, error: existingErr } = await adminClient
+        .from('task_submissions')
+        .select('id, submission_status, created_at')
+        .eq('task_id', resolvedTaskId)
+        .eq('user_id', userId)
+        .single();
+
+      if (existingErr && existingErr.code !== 'PGRST116') {
+        // PGRST116 means no rows found, which is what we want
+        console.error('[TasksService.submitTask] Error checking existing submission:', existingErr);
+        throw existingErr;
+      }
+
+      if (existingSubmission) {
+        console.log('[TasksService.submitTask] Found existing submission:', existingSubmission);
+        throw new BadRequestException(
+          `You have already submitted this task on ${new Date(existingSubmission.created_at).toLocaleDateString()}. ` +
+          `Current status: ${existingSubmission.submission_status}. Each task can only be submitted once.`
+        );
+      }
+
+      console.log('[TasksService.submitTask] No existing submission found, proceeding with new submission');
+
+      // Check task deadline to determine submission status
+      let fileUrl: string | null = null;
+      if (file && file.buffer) {
+        const filePath = `submission-files/${Date.now()}-${file.originalname}`;
+        const { data: uploadData, error: uploadErr } = await adminClient.storage
+          .from('submission-files')
+          .upload(filePath, file.buffer, { contentType: file.mimetype });
+        if (uploadErr) {
+          console.error('[TasksService.submitTask] File upload error:', uploadErr);
+          throw uploadErr;
+        }
+        fileUrl = adminClient.storage.from('submission-files').getPublicUrl(uploadData.path).data.publicUrl;
+        console.log('[TasksService.submitTask] File uploaded:', fileUrl);
+      }
+      
+      const { data: task, error: taskErr } = await adminClient
+        .from('tasks')
+        .select('id,deadline,title')
+        .eq('id', resolvedTaskId)
+        .single();
+      if (taskErr) {
+        console.error('[TasksService.submitTask] Task fetch error:', taskErr);
+        
+        // If task not found, provide more helpful error message
+        if (taskErr.code === 'PGRST116') {
+          // Get available tasks for debugging
+          const { data: availableTasks } = await adminClient
+            .from('tasks')
+            .select('id,title')
+            .limit(5);
+          
+          const availableTasksInfo = availableTasks 
+            ? availableTasks.map(t => `${t.id} (${t.title})`).join(', ')
+            : 'No tasks found';
+            
+          throw new NotFoundException(
+            `Task with ID '${resolvedTaskId}' not found. Available tasks: ${availableTasksInfo}`
+          );
+        }
+        throw taskErr;
+      }
+      console.log('[TasksService.submitTask] Task found:', task);
+
+      const now = Date.now();
+      let isOverdue = false;
+      if (task && task.deadline) {
+        const dl = new Date(task.deadline).getTime();
+        if (!isNaN(dl) && now > dl) isOverdue = true;
+      }
+
+      // Build submission content and handle new fields
+      let content = submitTaskDto.submission_content || '';
+      if (fileUrl) content += '\nFile: ' + fileUrl;
+      
+      // Handle file_url from DTO (if provided directly)
+      let allFileUrls: string[] = [];
+      if (fileUrl) allFileUrls.push(fileUrl);
+      if (submitTaskDto.file_url) {
+        allFileUrls.push(submitTaskDto.file_url);
+        if (!content.includes(submitTaskDto.file_url)) {
+          content += '\nFile: ' + submitTaskDto.file_url;
+        }
+      }
+      
+      // Use description from DTO if provided, otherwise use submission_content
+      const description = submitTaskDto.description || content || '';
+      
+      // Validate that at least one form of submission is provided
+      if (!description && allFileUrls.length === 0) {
+        throw new BadRequestException(
+          'Submission must include at least one of the following: description, file upload, or file URL'
+        );
+      }
+      
+      console.log('[TasksService.submitTask] Submission content:', content);
+      console.log('[TasksService.submitTask] Description:', description);
+      console.log('[TasksService.submitTask] File URLs:', allFileUrls);
+      console.log('[TasksService.submitTask] Is overdue:', isOverdue);
+
+      if (isOverdue) {
+        // Insert directly with OVERDUE status
+        const payload = {
+          task_id: resolvedTaskId,
+          user_id: userId,
+          description: description,
+          submission_status: SubmissionStatus.OVERDUE,
+          file_urls: allFileUrls.length > 0 ? allFileUrls.join('\n') : null,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        } as any;
+
+        console.log('[TasksService.submitTask] Inserting OVERDUE payload:', payload);
+        const { data: inserted, error: insertErr } = await adminClient
+          .from('task_submissions')
+          .insert(payload)
+          .select('id, task_id, user_id, description, submission_status, file_urls, created_at, updated_at')
+          .single();
+        if (insertErr) {
+          console.error('[TasksService.submitTask] Insert error (OVERDUE):', insertErr);
+          throw insertErr;
+        }
+        console.log('[TasksService.submitTask] Successfully inserted (OVERDUE):', inserted);
+
+        return {
+          status: 'success',
+          message: 'Task submitted (OVERDUE)',
+          data: inserted,
+        };
+      }
+
+     // Not overdue: insert directly with SUBMITTED status
+     const payload = {
+       task_id: resolvedTaskId,
+       user_id: userId,
+       description: description,
+       submission_status: SubmissionStatus.SUBMITTED,
+       file_urls: allFileUrls.length > 0 ? allFileUrls.join('\n') : null,
+       created_at: new Date().toISOString(),
+       updated_at: new Date().toISOString(),
+     } as any;
+
+     console.log('[TasksService.submitTask] Inserting SUBMITTED payload:', payload);
+     const { data: inserted, error: insertErr } = await adminClient
+       .from('task_submissions')
+       .insert(payload)
+       .select('id, task_id, user_id, description, submission_status, file_urls, created_at, updated_at')
+       .single();
+     if (insertErr) {
+       console.error('[TasksService.submitTask] Insert error (SUBMITTED):', insertErr);
+       throw insertErr;
+     }
+     console.log('[TasksService.submitTask] Successfully inserted (SUBMITTED):', inserted);
+
+     return {
+       status: 'success',
+       message: 'Task submitted successfully',
+       data: inserted
+     };
     } catch (error) {
-      if (error.message.includes('not found')) {
+      console.error('[TasksService.submitTask] Error occurred:', error);
+      if (error.message && error.message.includes('not found')) {
         throw new NotFoundException(error.message);
       }
-      throw new BadRequestException(error.message);
+      throw new BadRequestException(error.message || 'Failed to submit task');
     }
   }
 
@@ -181,11 +340,11 @@ export class TasksService extends BaseService {
    * 2) dto.task_identifier (readable title)
    * 3) Auto-select latest eligible task for user's division/year that hasn't been submitted yet
    */
-  async submitTaskFlexible(userId: string, dto: SubmitTaskDto) {
+  async submitTaskFlexible(userId: string, dto: Partial<SubmitTaskDto> = {}, file?: Express.Multer.File) {
     try {
-      const taskIdentifier = (dto.task_id || dto.task_identifier || '').toString().trim();
+  const taskIdentifier = ((dto && (dto.task_id || dto.task_identifier)) || '').toString().trim();
       if (taskIdentifier) {
-        return this.submitTask(taskIdentifier, userId, dto);
+        return this.submitTask(taskIdentifier, userId, dto, file);
       }
 
       const adminClient = this.supabaseService.getClient(true);
@@ -241,7 +400,7 @@ export class TasksService extends BaseService {
         throw new NotFoundException('No available tasks to submit for your division/year');
       }
 
-      return this.submitTask(pick.id, userId, dto);
+  return this.submitTask(pick.id, userId, dto, file);
     } catch (error) {
       if (error instanceof NotFoundException || error instanceof BadRequestException) {
         throw error;
@@ -273,14 +432,14 @@ export class TasksService extends BaseService {
         throw new NotFoundException('Task submission not found');
       }
 
-      // Call RPC using admin client
-      const { data: result, error: rpcErr } = await adminClient.rpc('review_submission', {
-        p_submission_id: submission.id,
-        p_reviewer_id: adminId,
-        p_status: updateTaskDto.status,
-        p_feedback: updateTaskDto.feedback,
-      });
-      if (rpcErr) throw rpcErr;
+      // Update submission directly without feedback column
+      const { data: result, error: updateErr } = await adminClient
+        .from('task_submissions')
+        .update({ submission_status: updateTaskDto.status, updated_at: new Date().toISOString() })
+        .eq('id', submission.id)
+        .select()
+        .single();
+      if (updateErr) throw updateErr;
 
       return {
         status: 'success',
@@ -364,8 +523,13 @@ export class TasksService extends BaseService {
    * Resolve a task identifier which may be a UUID or a readable title to a UUID
    */
   async resolveTaskId(taskIdentifier: string) {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (uuidRegex.test(taskIdentifier)) return taskIdentifier;
+    const dashedUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const compactUuid = /^[0-9a-f]{32}$/i;
+    if (dashedUuid.test(taskIdentifier)) return taskIdentifier;
+    if (compactUuid.test(taskIdentifier)) {
+      const s = taskIdentifier;
+      return `${s.slice(0,8)}-${s.slice(8,12)}-${s.slice(12,16)}-${s.slice(16,20)}-${s.slice(20)}`;
+    }
 
     const adminClient = this.supabaseService.getClient(true);
     // try exact title match (case-insensitive)
@@ -417,6 +581,87 @@ export class TasksService extends BaseService {
     }
   }
 
+  /**
+   * Direct JSON submission handler used by POST /task/submit
+   * Accepts task_id, user_id, submission_content and inserts into task_submissions
+   * Sets submission_status to OVERDUE if deadline passed, otherwise SUBMITTED (default)
+   */
+  async submitTaskDirect(taskId: string, userId: string, description: string, fileUrls: string[] = []) {
+    const adminClient = this.supabaseService.getClient(true);
+
+    // Prevent double submission
+    const { data: existing, error: existingErr } = await adminClient
+      .from('task_submissions')
+      .select('id, submission_status')
+      .eq('task_id', taskId)
+      .eq('user_id', userId)
+      .single();
+    if (existingErr && existingErr.code !== 'PGRST116') throw existingErr;
+    if (existing) throw new BadRequestException('Task already submitted by this user');
+
+    // Resolve task and check deadline
+    const { data: task, error: taskErr } = await adminClient
+      .from('tasks')
+      .select('id,deadline')
+      .eq('id', taskId)
+      .single();
+    if (taskErr) throw taskErr;
+    if (!task) throw new NotFoundException('Task not found');
+
+    const now = Date.now();
+    let isOverdue = false;
+    if (task.deadline) {
+      const dl = new Date(task.deadline).getTime();
+      if (!isNaN(dl) && now > dl) isOverdue = true;
+    }
+
+    const payload: any = {
+      task_id: taskId,
+      user_id: userId,
+      description,
+      file_urls: fileUrls.length ? fileUrls.join('\n') : null,
+      submission_status: isOverdue ? SubmissionStatus.OVERDUE : SubmissionStatus.SUBMITTED,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: inserted, error: insertErr } = await adminClient
+      .from('task_submissions')
+      .insert(payload)
+      .select(
+        'id, task_id, user_id, description, file_urls, submission_status, created_at, updated_at'
+      )
+      .single();
+    if (insertErr) throw insertErr;
+    return inserted;
+  }
+
+  // Get a user's submission (if any) for a specific task
+  async getUserSubmission(taskId: string, userId: string) {
+    try {
+      console.log('[TasksService.getUserSubmission] fetch for', { taskId, userId });
+      const adminClient = this.supabaseService.getClient(true);
+      const { data: submission, error } = await adminClient
+        .from('task_submissions')
+        .select('id, task_id, user_id, description, submission_status, file_urls, created_at, updated_at')
+        .eq('task_id', taskId)
+        .eq('user_id', userId)
+        .single();
+      if (error) {
+        console.log('[TasksService.getUserSubmission] supabase error:', error);
+        if (error.code === 'PGRST116') {
+          // no submission found
+          throw new NotFoundException(`No submission found for task '${taskId}' and user '${userId}'`);
+        }
+        throw error;
+      }
+      console.log('[TasksService.getUserSubmission] found submission:', submission);
+      return { status: 'success', data: submission };
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to fetch submission');
+    }
+  }
+
   async getAvailableTasks() {
     try {
       const { data: tasks, error } = await this.supabaseService
@@ -464,6 +709,148 @@ export class TasksService extends BaseService {
     }
   }
 
+  async debugListTasks() {
+    try {
+      const adminClient = this.supabaseService.getClient(true);
+      const { data: tasks, error } = await adminClient
+        .from('tasks')
+        .select('id, title, created_at, deadline')
+        .order('created_at', { ascending: false })
+        .limit(20);
+
+      if (error) {
+        throw error;
+      }
+
+      return {
+        status: 'success',
+        message: 'Debug: All tasks with their IDs',
+        data: tasks
+      };
+    } catch (error) {
+      console.error('[TasksService.debugListTasks] Error:', error);
+      throw new BadRequestException(error.message || 'Failed to list tasks');
+    }
+  }
+
+  /**
+   * Get task submission by submission ID
+   * Returns submission details including task description and file URLs
+   */
+  async getTaskSubmissionById(submissionId: string) {
+    try {
+      console.log('[TasksService.getTaskSubmissionById] Getting submission:', submissionId);
+      
+      const adminClient = this.supabaseService.getClient(true);
+      
+      // Return only the submission row from task_submissions (avoid joins)
+      const { data: submission, error } = await adminClient
+        .from('task_submissions')
+        .select('id, task_id, user_id, description, submission_status, file_urls, created_at, updated_at')
+        .eq('id', submissionId)
+        .single();
+
+      if (error) {
+        console.error('[TasksService.getTaskSubmissionById] Error:', error);
+        if (error.code === 'PGRST116') {
+          throw new NotFoundException(`Task submission with ID '${submissionId}' not found`);
+        }
+        throw error;
+      }
+
+      console.log('[TasksService.getTaskSubmissionById] Found submission:', submission);
+      return {
+        status: 'success',
+        message: 'Task submission retrieved successfully',
+        data: submission
+      };
+    } catch (error) {
+      console.error('[TasksService.getTaskSubmissionById] Error occurred:', error);
+      if (error instanceof NotFoundException) {
+        throw error;
+      }
+      throw new BadRequestException(error.message || 'Failed to get task submission');
+    }
+  }
+
+  // Admin: return all submissions for a given task
+  async getAllSubmissionsForTask(taskId: string) {
+    try {
+      const adminClient = this.supabaseService.getClient(true);
+      const { data, error } = await adminClient
+        .from('task_submissions')
+        .select('id, task_id, user_id, description, submission_status, file_urls, created_at, updated_at')
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return { status: 'success', data };
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to list submissions');
+    }
+  }
+
+  // Admin: update single submission status (taskId + userId)
+  async updateTaskSubmissionStatus(taskId: string, userId: string, adminId: string, updateTaskDto: UpdateTaskDto) {
+    try {
+      // ensure admin
+      const adminClient = this.supabaseService.getClient();
+      const { data: admin, error: adminErr } = await adminClient.from('users').select('role').eq('id', adminId).single();
+      if (adminErr || !admin || admin.role !== UserRole.ADMIN) throw new UnauthorizedException('Only admins can update submission status');
+
+      // Normalize potential 32-hex to dashed UUID for userId
+      const normalizeUuid = (id: string) => {
+        const compact = id?.trim();
+        if (/^[0-9a-f]{32}$/i.test(compact)) {
+          return `${compact.slice(0,8)}-${compact.slice(8,12)}-${compact.slice(12,16)}-${compact.slice(16,20)}-${compact.slice(20)}`;
+        }
+        return compact;
+      };
+      const normalizedUserId = normalizeUuid(userId);
+
+      // find the most recent submission in case there are duplicates
+      const client = this.supabaseService.getClient(true);
+      const { data: submissions, error: subErr } = await client
+        .from('task_submissions')
+        .select('id, created_at')
+        .eq('task_id', taskId)
+        .eq('user_id', normalizedUserId)
+        .order('created_at', { ascending: false })
+        .limit(1);
+      if (subErr) throw subErr;
+      const submission = Array.isArray(submissions) ? submissions[0] : submissions;
+
+      // If no submission exists, create one with requested status (admin override)
+      if (!submission) {
+        const { data: inserted, error: insertErr } = await client
+          .from('task_submissions')
+          .insert({
+            task_id: taskId,
+            user_id: normalizedUserId,
+            description: updateTaskDto.feedback || '',
+            submission_status: updateTaskDto.status,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+        if (insertErr) throw insertErr;
+        return inserted;
+      }
+
+      const { data: updated, error: updateErr } = await client
+        .from('task_submissions')
+        .update({ submission_status: updateTaskDto.status, updated_at: new Date().toISOString() })
+        .eq('id', submission.id)
+        .select()
+        .single();
+      if (updateErr) throw updateErr;
+      return updated;
+    } catch (error) {
+      if (error instanceof NotFoundException || error instanceof UnauthorizedException) throw error;
+      throw new BadRequestException(error.message || 'Failed to update submission status');
+    }
+  }
+
   /**
    * Preview which task-user submission rows would be affected by filters.
    */
@@ -471,12 +858,14 @@ export class TasksService extends BaseService {
     const adminClient = this.supabaseService.getClient(true);
 
     // Build base query on task_submissions joined with tasks and users
-    let query = adminClient.from('task_submissions').select('task_id,user_id', { count: 'exact' });
+  let query = adminClient.from('task_submissions').select('task_id,user_id', { count: 'exact' });
 
     // Apply filters
     if (filters?.task_ids && filters.task_ids.length) query = query.in('task_id', filters.task_ids);
     if (filters?.user_ids && filters.user_ids.length) query = query.in('user_id', filters.user_ids);
-    if (filters?.status) query = query.eq('status', filters.status);
+  // support both `status` and `submission_status` filter keys
+  if (filters?.status) query = query.eq('submission_status', filters.status);
+  if (filters?.submission_status) query = query.eq('submission_status', filters.submission_status);
     if (filters?.due_date_before) query = query.lte('created_at', filters.due_date_before);
     if (filters?.assigned_after) query = query.gte('created_at', filters.assigned_after);
 
@@ -505,7 +894,7 @@ export class TasksService extends BaseService {
     for (let i = 0; i < updates.length; i += chunkSize) {
       const chunk = updates.slice(i, i + chunkSize);
       // Update where (task_id, user_id) in (...) via OR chain
-      let builder = adminClient.from('task_submissions').update({ status: new_status, updated_at: new Date().toISOString(), feedback: update_reason });
+  let builder = adminClient.from('task_submissions').update({ submission_status: new_status, updated_at: new Date().toISOString() });
       // Build filters
       const ors = chunk.map((c, idx) => `task_id.eq.${c.task_id},user_id.eq.${c.user_id}`).join(',');
       builder = builder.or(ors);
@@ -519,7 +908,16 @@ export class TasksService extends BaseService {
 
   async findTaskById(taskId: string) {
     try {
-      const result = await this.findOne('tasks', taskId);
+      // Use admin client and avoid .single() to prevent PostgREST coercion errors
+      const adminClient = this.supabaseService.getClient(true);
+      const { data, error } = await adminClient
+        .from('tasks')
+        .select('*')
+        .eq('id', taskId)
+        .limit(1);
+      if (error) throw error;
+
+      const result = Array.isArray(data) ? data[0] : data;
       if (!result) {
         throw new NotFoundException('Task not found');
       }
@@ -532,6 +930,19 @@ export class TasksService extends BaseService {
         throw error;
       }
       throw new BadRequestException(error.message);
+    }
+  }
+
+  async deleteTask(taskId: string) {
+    try {
+      const adminClient = this.supabaseService.getClient(true);
+      // Clean up related submissions first (if FK is not cascading)
+      await adminClient.from('task_submissions').delete().eq('task_id', taskId);
+      const { error } = await adminClient.from('tasks').delete().eq('id', taskId);
+      if (error) throw error;
+      return { status: 'success', message: 'Task deleted successfully' };
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to delete task');
     }
   }
 

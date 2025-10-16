@@ -14,7 +14,8 @@ export interface TaskWithProfile {
 export interface TaskSubmissionWithProfile {
   id: string;
   task_id: string;
-  submission_content: string;
+  description: string;
+  file_urls?: string[];
   status: string;
   submitted_at: string;
   profile: {

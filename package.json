@@ -27,8 +27,8 @@
     "test:e2e": "jest --config ./test/jest-e2e.json",
     "clean": "rimraf dist",
     "clean:install": "rimraf dist node_modules package-lock.json && npm install",
-    "dev:verbose": "cross-env NODE_ENV=development nest start --watch"
-  ,"migrate-js": "node scripts/migrate-js-artifacts.js"
+    "dev:verbose": "cross-env NODE_ENV=development nest start --watch",
+    "migrate-js": "node scripts/migrate-js-artifacts.js"
   },
   "_moduleAliases": {
     "@": "src"
@@ -41,6 +41,7 @@
     "@nestjs/passport": "^10.0.2",
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/swagger": "^7.4.2",
+    "axios": "^1.12.2",
     "bcryptjs": "^2.4.3",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.2",

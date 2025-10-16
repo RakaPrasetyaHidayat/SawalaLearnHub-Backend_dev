@@ -15,6 +15,8 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     const ctx = host.switchToHttp();
     const response = ctx.getResponse<Response>();
 
+    console.error('[GlobalExceptionFilter] Exception caught:', exception);
+
     let status = HttpStatus.INTERNAL_SERVER_ERROR;
     let message = 'Internal server error';
     let error = null;
@@ -31,19 +33,35 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       status = HttpStatus.FORBIDDEN;
       message = 'Access denied';
     } else if (exception instanceof PostgrestError) {
+      status = HttpStatus.BAD_REQUEST;
       message = exception.message;
       error = {
         code: exception.code,
         details: exception.details,
         hint: exception.hint
       };
+    } else if ((exception as any)?.code) {
+      // Handle Supabase/PostgreSQL errors
+      status = HttpStatus.BAD_REQUEST;
+      message = (exception as any).message || 'Database error';
+      error = {
+        code: (exception as any).code,
+        details: (exception as any).details,
+        hint: (exception as any).hint
+      };
     } else if (exception instanceof Error) {
       message = exception.message;
-      error = process.env.NODE_ENV === 'development' ? exception : undefined;
+      error = process.env.NODE_ENV === 'development' ? {
+        stack: exception.stack,
+        name: exception.name
+      } : undefined;
     }
+
+    const errorResponse = createErrorResponse(message, error);
+    console.error('[GlobalExceptionFilter] Sending error response:', errorResponse);
 
     response
       .status(status)
-      .json(createErrorResponse(message, error));
+      .json(errorResponse);
   }
 }

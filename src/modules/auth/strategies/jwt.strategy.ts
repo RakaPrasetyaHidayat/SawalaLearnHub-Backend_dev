@@ -19,7 +19,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: any) {
-    const user = await this.supabaseService.findOne('users', payload.sub);
+    // Use admin client to fetch user to avoid RLS issues during authentication
+    const user = await this.supabaseService.findOne('users', payload.sub, true);
     if (!user) {
       throw new UnauthorizedException();
     }

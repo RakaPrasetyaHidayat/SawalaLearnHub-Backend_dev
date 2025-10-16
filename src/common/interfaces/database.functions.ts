@@ -62,7 +62,8 @@ export interface DatabaseFunctions {
       id: string;
       task_id: string;
       user_id: string;
-      submission_content: string;
+      description: string;
+      file_urls?: string[];
       submission_status: SubmissionStatus;
       created_at: string;
     };
@@ -107,7 +108,8 @@ export interface DatabaseFunctions {
       id: string;
       task_id: string;
       user_id: string;
-      submission_content: string;
+      description: string;
+      file_urls?: string[];
       submission_status: SubmissionStatus;
       created_at: string;
       task: {

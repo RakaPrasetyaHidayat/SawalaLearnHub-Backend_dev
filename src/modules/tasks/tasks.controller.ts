@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Put, UseGuards, UploadedFile, UseInterceptors, Headers, Query } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, Put, Delete, UseGuards, UploadedFile, UseInterceptors, Headers, Query } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { TasksService } from './tasks.service';
@@ -9,6 +9,7 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { UserRole, SubmissionStatus } from '../../common/enums';
 import { CreateTaskDto, SubmitTaskDto, UpdateTaskDto } from './dto/task.dto';
 import { GetTasksQueryDto, BatchUpdateDto, BatchPreviewDto } from './dto/task.dto';
+import { UUID } from 'crypto';
 
 @Controller('tasks')
 export class TasksController {
@@ -46,7 +47,7 @@ export class TasksController {
           },
           updateTaskStatus: {
             method: 'PUT',
-            url: '/api/tasks/:taskId/users/:userId/status',
+            url: ':taskId/status',
             description: 'Update task status (Admin/Mentor)',
             auth: 'Required (Admin/Mentor)'
           },
@@ -79,6 +80,12 @@ export class TasksController {
             url: '/api/tasks/admin/tasks/:taskId/update-all-status',
             description: 'Admin: update status for ALL submissions of a specific task (simplified endpoint)',
             auth: 'Required (Admin)'
+          },
+          getTaskSubmissionById: {
+            method: 'GET',
+            url: '/api/tasks/submissions/:submissionId',
+            description: 'Get task submission details by submission ID (includes task description and file URLs)',
+            auth: 'Required'
           }
         }
       }
@@ -111,12 +118,52 @@ export class TasksController {
 
   @Post('submit')
   @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 25 * 1024 * 1024 },
+    }),
+  )
   submitTask(
     @GetUser('id') userId: string,
-    @Body() submitTaskDto: SubmitTaskDto,
+    @UploadedFile() file?: Express.Multer.File,
+    @Body() submitTaskDto?: SubmitTaskDto,
   ) {
-    // Supports body-based task selection: task_id, task_identifier, or auto-select latest pending task for the user
-    return this.tasksService.submitTaskFlexible(userId, submitTaskDto);
+    // Supports body-based task selection: task_id, task_identifier, or auto-select latest eligible task for the user
+    return this.tasksService.submitTaskFlexible(userId, submitTaskDto || {}, file);
+  }
+
+  // URL-based submit: POST /api/tasks/:taskId/submit
+  @Post(':taskId/submit')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: memoryStorage(),
+      limits: { fileSize: 25 * 1024 * 1024 },
+    }),
+  )
+  async submitTaskByPath(
+    @Param('taskId') taskId: string,
+    @GetUser('id') userId: string,
+    @UploadedFile() file?: Express.Multer.File,
+    @Body() submitTaskDto?: SubmitTaskDto,
+  ) {
+    console.log('[TasksController.submitTaskByPath] Request received:', {
+      taskId,
+      userId,
+      submitTaskDto,
+      hasFile: !!file,
+      fileName: file?.originalname
+    });
+    
+    try {
+      const result = await this.tasksService.submitTask(taskId, userId, submitTaskDto || {}, file);
+      console.log('[TasksController.submitTaskByPath] Success:', result);
+      return result;
+    } catch (error) {
+      console.error('[TasksController.submitTaskByPath] Error:', error);
+      throw error;
+    }
   }
 
   @Put(':taskId/users/:userId/status')
@@ -128,8 +175,21 @@ export class TasksController {
     @GetUser('id') adminId: string,
     @Body() updateTaskDto: UpdateTaskDto,
   ) {
-    // Use flexible resolver: accepts UUIDs or readable identifiers (title, email, full_name)
-    return this.tasksService.updateTaskStatusFlexible(taskId, userId, adminId, updateTaskDto);
+    return this.tasksService.updateTaskSubmissionStatus(taskId, userId, adminId, updateTaskDto);
+  }
+
+  @Put(':taskId/status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateTaskStatusByBody(
+    @Param('taskId') taskId: string,
+    @GetUser('id') adminId: string,
+    @Body() updateTaskDto: UpdateTaskDto,
+  ) {
+    const { user_id } = updateTaskDto;
+    // Resolve task identifier: accept UUID with dashes, 32-hex UUID, or readable title
+    const resolvedTaskId = await this.tasksService.resolveTaskId(taskId);
+    return this.tasksService.updateTaskSubmissionStatus(resolvedTaskId, user_id, adminId, updateTaskDto);
   }
 
   @Get('year/:year')
@@ -161,6 +221,38 @@ export class TasksController {
   @UseGuards(JwtAuthGuard)
   getAvailableTasks() {
     return this.tasksService.getAvailableTasks();
+  }
+
+  // Debug endpoint to list all tasks with their IDs
+  @Get('debug/list')
+  @UseGuards(JwtAuthGuard)
+  async debugListTasks() {
+    return this.tasksService.debugListTasks();
+  }
+
+  // Get task submission by submission ID
+  @Get('submissions/:submissionId')
+  @UseGuards(JwtAuthGuard)
+  async getTaskSubmissionById(@Param('submissionId') submissionId: string) {
+    return this.tasksService.getTaskSubmissionById(submissionId);
+  }
+
+
+  // Get current authenticated user's submission for a task
+  @Get(':taskId/submission')
+  @UseGuards(JwtAuthGuard)
+  async getMySubmissionForTask(@Param('taskId') taskId: string, @GetUser('id') userId: string) {
+    const resolvedTaskId = await this.tasksService.resolveTaskId(taskId);
+    return this.tasksService.getUserSubmission(resolvedTaskId, userId);
+  }
+
+  // Admin: list all submissions for a task
+  @Get(':taskId/submissions')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async getAllSubmissionsForTask(@Param('taskId') taskId: string) {
+    const resolvedTaskId = await this.tasksService.resolveTaskId(taskId);
+    return this.tasksService.getAllSubmissionsForTask(resolvedTaskId);
   }
 
   @Get()
@@ -266,7 +358,7 @@ export class TasksController {
   @Roles(UserRole.ADMIN)
   async updateAllTaskSubmissionsStatus(
     @Param('taskId') taskId: string,
-    @Body() body: { new_status: SubmissionStatus; feedback?: string; reason?: string },
+    @Body() body: { new_status: SubmissionStatus; reason?: string },
     @GetUser('id') adminId: string,
   ) {
     // Resolve task identifier (accept UUID or title)
@@ -277,7 +369,7 @@ export class TasksController {
     const result = await this.tasksService.batchUpdateStatus(
       filters,
       body.new_status,
-      body.feedback || body.reason,
+      body.reason,
       adminId
     );
 
@@ -286,5 +378,32 @@ export class TasksController {
       message: `Successfully updated ${result.updated_count} task submissions to ${body.new_status}`,
       data: result
     };
+  }
+
+  // Get task detail by id or readable identifier (title)
+  @Get(':taskId')
+  @UseGuards(JwtAuthGuard)
+  async getTaskById(@Param('taskId') taskId: string) {
+    // resolve readable identifier to UUID when necessary
+    const resolvedTaskId = await this.tasksService.resolveTaskId(taskId);
+    return this.tasksService.findTaskById(resolvedTaskId);
+  }
+
+  // Delete task by ID (admin only)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Post(':taskId/delete')
+  async deleteTaskByPost(@Param('taskId') taskId: string) {
+    const resolvedTaskId = await this.tasksService.resolveTaskId(taskId);
+    return this.tasksService.deleteTask(resolvedTaskId);
+  }
+
+  // Support DELETE /api/tasks/:taskId
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  @Delete(':taskId')
+  async deleteTask(@Param('taskId') taskId: string) {
+    const resolvedTaskId = await this.tasksService.resolveTaskId(taskId);
+    return this.tasksService.deleteTask(resolvedTaskId);
   }
 }

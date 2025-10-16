@@ -138,7 +138,32 @@ export class ResourcesService {
 
     // kalau division_id masih kosong, coba ambil dari profile (opsional)
     if (!payload.division_id && userProfile?.division_id) {
-      payload.division_id = userProfile.division_id;
+      const profDiv = String(userProfile.division_id).trim();
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(profDiv)) {
+        payload.division_id = profDiv;
+      } else {
+        // userProfile.division_id berisi nama divisi (mis. "DevOps"): resolve ke UUID
+        try {
+          const { data: divisions, error: divErr } = await this.supabaseService
+            .getClient(true)
+            .from('divisions')
+            .select('id,name')
+            .ilike('name', profDiv);
+          if (divErr) throw divErr;
+          if (divisions && divisions.length === 1) {
+            payload.division_id = divisions[0].id;
+          } else if (divisions && divisions.length > 1) {
+            const exact = divisions.find(
+              (d: any) => d.name.toLowerCase() === profDiv.toLowerCase(),
+            );
+            if (exact) payload.division_id = exact.id;
+            // jika masih ambigu, biarkan undefined supaya DB default (all-division) dapat bekerja
+          }
+        } catch {
+          // biarkan undefined jika gagal resolve
+        }
+      }
     }
 
     // Bersihkan field optional: jangan kirim bila kosong → biarkan default DB bekerja

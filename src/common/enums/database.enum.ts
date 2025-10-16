@@ -12,16 +12,20 @@ export enum UserRole {
 
 
 export enum TaskStatus {
-  ACTIVE = 'ACTIVE',
+  OPEN = 'OPEN',
+  IN_PROGRESS = 'IN_PROGRESS',
+  ON_PROGRES = 'ON-PROGRESS',
   COMPLETED = 'COMPLETED',
+  ACTIVE = 'ACTIVE',
   ARCHIVED = 'ARCHIVED'
 }
 
 export enum SubmissionStatus {
   SUBMITTED = 'SUBMITTED',
   OVERDUE = 'OVERDUE',
-  REVISED = 'REVISED',
-  APPROVED = 'APPROVED'
+  REVISION = 'REVISION',
+  APPROVED = 'APPROVED',
+  ON_PROGRES = 'ON-PROGRESS'
 }
 
 export enum Division {
@@ -29,4 +33,11 @@ export enum Division {
   FRONTEND = 'FRONTEND',
   UI_UX = 'UI_UX',
   DEVOPS = 'DEVOPS'
+}
+
+export enum ResourceType {
+  DOCUMENT = 'DOCUMENT',
+  VIDEO = 'VIDEO',
+  CODE = 'CODE',
+  LINK = 'LINK',
 }

@@ -89,15 +89,43 @@ export class PostsService {
   }
 
   async findOne(id: string): Promise<Post> {
-    const { data: post, error } = await this.supabaseService
-      .getClient()
+    const client = this.supabaseService.getClient();
+
+    const { data: post, error } = await client
       .from('posts')
-      .select()
+      .select('*')
       .eq('id', id)
       .maybeSingle();
 
     if (error || !post) throw new NotFoundException('Post not found');
-    return post as Post;
+
+    // Fetch author summary
+    const { data: author } = await client
+      .from('users')
+      .select('id, full_name, email')
+      .eq('id', post.user_id)
+      .maybeSingle();
+
+    // Fetch counts for likes and comments
+    const [{ count: likesCount }, { count: commentsCount }] = await Promise.all([
+      (async () => {
+        const { count } = await client.from('post_likes').select('id', { count: 'exact', head: true }).eq('post_id', id);
+        return { count: count || 0 } as any;
+      })(),
+      (async () => {
+        const { count } = await client.from('comments').select('id', { count: 'exact', head: true }).eq('post_id', id);
+        return { count: count || 0 } as any;
+      })(),
+    ]);
+
+    return {
+      ...post,
+      author: author || null,
+      meta: {
+        likes: likesCount || 0,
+        comments: commentsCount || 0,
+      },
+    } as any;
   }
 
   async update(

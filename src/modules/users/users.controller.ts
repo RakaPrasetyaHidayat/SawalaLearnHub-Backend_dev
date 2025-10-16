@@ -27,8 +27,15 @@ export class UsersController {
 
   @Get('division/:division_id')
   @UseGuards(JwtAuthGuard)
-  async getUsersByDivision(@Param('division_id', new ParseUUIDPipe()) division_id: string) {
-    return await this.usersService.getUsersByDivision(division_id);
+  async getUsersByDivision(
+    // NOTE: division_id column in the `users` table stores human-friendly names
+    // (e.g. 'Backend', 'Frontend', 'UI/UX', 'DevOps') for older rows. Accept
+    // both UUIDs and plain division names here so frontend can pass either.
+    @Param('division_id') division_id: string,
+    @Query('year') year?: string,
+  ) {
+    // If year provided, return users for that division-year; otherwise return grouped by channel_year
+    return await this.usersService.getUsersByDivision(division_id, year);
   }
 
   @Get('year/:year')
@@ -265,7 +272,7 @@ export class UsersController {
   async updateUserStatus(
     @Param('id') id: string,
     @Body() updateStatusDto: UpdateUserStatusDto,
-    @GetUser('sub') adminId: string,
+    @GetUser('id') adminId: string,
   ) {
     try {
       const user = await this.usersService.updateUserStatus(id, updateStatusDto, adminId);
@@ -292,7 +299,7 @@ export class UsersController {
   async acceptUser(
     @Param('id') id: string,
     @Body() body: AcceptUserDto,
-    @GetUser('sub') adminId: string,
+    @GetUser('id') adminId: string,
   ) {
     try {
       const user = await this.usersService.acceptUser(id, adminId, body?.role);
@@ -314,7 +321,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, RolesGuard)
   deleteRejectedUser(
     @Param('id') id: string,
-    @GetUser('sub') adminId: string,
+    @GetUser('id') adminId: string,
   ) {
     return this.usersService.deleteRejectedUser(id, adminId);
   }
@@ -334,7 +341,7 @@ export class UsersController {
   @Patch('me')
   @UseGuards(JwtAuthGuard)
   async updateOwnProfile(
-    @GetUser('sub') userId: string,
+    @GetUser('id') userId: string,
     @Body() updateDto: any,
   ) {
     try {
@@ -349,6 +356,23 @@ export class UsersController {
         { status: 'error', message: error.message },
         HttpStatus.BAD_REQUEST,
       );
+    }
+  }
+
+  // Admin: update any user's profile (full_name, division_id, school_name, channel_year)
+  @Patch(':id')
+  @Roles(UserRole.ADMIN)
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  async updateUserProfileByAdmin(
+    @Param('id') id: string,
+    @Body() updateDto: any,
+    @GetUser('id') adminId: string,
+  ) {
+    try {
+      const updated = await this.usersService.updateUserProfile(id, updateDto, adminId);
+      return { status: 'success', message: 'User profile updated', data: updated };
+    } catch (error: any) {
+      throw new HttpException({ status: 'error', message: error.message }, HttpStatus.BAD_REQUEST);
     }
   }
 }
