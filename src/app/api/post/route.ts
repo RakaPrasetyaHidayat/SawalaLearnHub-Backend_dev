@@ -6,7 +6,8 @@ export const runtime = "nodejs";
 const BASE_URL =
   process.env.NEXT_PUBLIC_API_BASE_URL?.replace(/\/$/, "") ||
   "https://learnhubbackenddev.vercel.app";
-const POSTS_ENDPOINT = `${BASE_URL}/api/posts`;
+const GET_POSTS_ENDPOINT = `${BASE_URL}/api/posts/list`;
+const CREATE_POST_ENDPOINT = `${BASE_URL}/api/posts`;
 
 function createHeaders(request: NextRequest, contentType?: string) {
   const headers: Record<string, string> = {
@@ -22,10 +23,10 @@ export async function GET(request: NextRequest) {
   try {
     const headers = createHeaders(request);
     
-    console.log("Get posts - Proxy URL:", POSTS_ENDPOINT);
+    console.log("Get posts - Proxy URL:", GET_POSTS_ENDPOINT);
     console.log("Get posts - Proxy Headers:", headers);
 
-    const res = await fetch(POSTS_ENDPOINT, {
+    const res = await fetch(GET_POSTS_ENDPOINT, {
       method: "GET",
       headers,
       cache: "no-store",
@@ -65,11 +66,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json().catch(() => ({}));
     const headers = createHeaders(request, "application/json");
     
-    console.log("Create post - Proxy URL:", POSTS_ENDPOINT);
+    console.log("Create post - Proxy URL:", CREATE_POST_ENDPOINT);
     console.log("Create post - Proxy Headers:", headers);
     console.log("Create post - Body:", body);
 
-    const res = await fetch(POSTS_ENDPOINT, {
+    const res = await fetch(CREATE_POST_ENDPOINT, {
       method: "POST",
       headers,
       body: JSON.stringify(body),

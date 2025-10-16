@@ -31,16 +31,16 @@ export default function ProfileMenuList({
           label="Tasks"
           href={`${basePath}/tasks`}
         />
-        <ProfileMenuItemLink
+        {/* <ProfileMenuItemLink
           icon={<GraduationCap className="w-6 h-6" />}
           label="Education"
           href={`${basePath}/education`}
-        />
-        <ProfileMenuItemLink
+        /> */}
+        {/* <ProfileMenuItemLink
           icon={<Network className="w-6 h-6" />}
           label="Social Account"
           href={`${basePath}/social`}
-        />
+        /> */}
         <LogoutConfirmationDialog onConfirm={onLogout || (() => {})}>
           <ProfileMenuItemButton
             icon={<LogOut className="w-6 h-6" />}

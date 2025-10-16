@@ -27,7 +27,6 @@ interface PostData {
 
 function mapItemToPostData(item: PostItem): PostData {
   const date = new Date(item.createdAt);
-  // Handle invalid dates gracefully
   const isValidDate = !isNaN(date.getTime());
   const timestamp = isValidDate
     ? date.toLocaleString("en-US", {
@@ -39,17 +38,29 @@ function mapItemToPostData(item: PostItem): PostData {
         year: "numeric",
       })
     : "Invalid date";
+  const rawId =
+    item.id ||
+    item._id ||
+    item.localId ||
+    item.createdAt ||
+    Math.random().toString(36).slice(2);
+  const likes = Number.isFinite(item.likes)
+    ? (item.likes as number)
+    : Number(item.likes ?? 0) || 0;
+  const comments = Number.isFinite(item.comments)
+    ? (item.comments as number)
+    : Number(item.comments ?? 0) || 0;
 
   return {
-    id: item.id,
+    id: String(rawId),
     user: { name: item.userName, avatar: item.userAvatar },
     content: item.content,
     file: item.file
       ? { name: item.file.name, type: item.file.type }
       : undefined,
     timestamp,
-    likes: item.likes,
-    comments: item.comments,
+    likes,
+    comments,
   };
 }
 

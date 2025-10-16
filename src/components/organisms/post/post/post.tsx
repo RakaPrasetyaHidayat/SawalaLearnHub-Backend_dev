@@ -1,7 +1,8 @@
 "use client"
 import React, { useState } from 'react'
-import Image from 'next/image'
+import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { ThumbsUp, MessageCircle, FileText } from 'lucide-react'
+import Image from 'next/image';
 
 interface PostProps {
   id: string
@@ -35,19 +36,19 @@ export default function Post({
   className = ''
 }: PostProps) {
   const [isLiked, setIsLiked] = useState(false)
-  const [likes, setLikes] = useState(initialLikes)
-  const [comments,] = useState(initialComments)
+  const [likes, setLikes] = useState(Number.isFinite(initialLikes) ? initialLikes : 0)
+  const [comments,] = useState(Number.isFinite(initialComments) ? initialComments : 0)
 
   const handleLike = () => {
     const newLikedState = !isLiked
     setIsLiked(newLikedState)
-    
+
     if (newLikedState) {
       setLikes(prev => prev + 1)
     } else {
-      setLikes(prev => prev - 1)
+      setLikes(prev => Math.max(0, prev - 1))
     }
-    
+
     onLike?.(id, newLikedState)
   }
 
@@ -70,14 +71,14 @@ export default function Post({
       <div className="flex items-center space-x-3 mb-3">
         <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0">
           <Image
-            src={user.avatar}
-            alt={user.name}
+            src="/assets/icons/profile.png"
+            alt="foto"
             width={40}
             height={40}
-            className="w-full h-full object-cover"
+            // className="w-full h-full object-cover"
           />
         </div>
-        <span className="font-bold text-base text-gray-900">{user.name}</span>
+        <span className="font-bold text-base text-gray-900">Someone</span>
       </div>
 
       {/* File Attachment (if exists) */}

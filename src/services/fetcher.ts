@@ -45,7 +45,10 @@ export function removeAuthToken() {
 }
 
 export async function apiFetcher<T = any>(path: string, options: RequestInit = {}): Promise<T> {
-  const url = `${API_BASE}${path}`;
+  // Use relative path for /api/* routes in browser to hit Next.js proxy
+  const isBrowser = typeof window !== "undefined";
+  const useRelative = isBrowser && path.startsWith("/api");
+  const url = useRelative ? path : `${API_BASE}${path}`;
   console.log("Fetching:", url);
 
   const controller = new AbortController();
@@ -59,7 +62,11 @@ export async function apiFetcher<T = any>(path: string, options: RequestInit = {
   }
 
   try {
-    const res = await fetch(url, { ...options, headers, signal: controller.signal });
+    const fetchOptions: RequestInit = { ...options, headers, signal: controller.signal };
+    if (useRelative) {
+      (fetchOptions as any).credentials = 'same-origin';
+    }
+    const res = await fetch(url, fetchOptions);
     clearTimeout(timeoutId);
 
     if (res.status === 401) {

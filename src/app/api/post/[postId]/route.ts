@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, context: any) {
       );
     }
 
-    const targetUrl = `${BASE_URL}/api/posts/${postId}`;
+    const targetUrl = `${BASE_URL}/api/post/${postId}`;
     const headers = createHeaders(request);
     
     console.log("Get post by ID - Proxy URL:", targetUrl);
@@ -84,7 +84,7 @@ export async function PUT(request: NextRequest, context: any) {
     }
 
     const body = await request.json().catch(() => ({}));
-    const targetUrl = `${BASE_URL}/api/posts/${postId}`;
+    const targetUrl = `${BASE_URL}/api/post/${postId}`;
     const headers = createHeaders(request, "application/json");
     
     console.log("Update post - Proxy URL:", targetUrl);
@@ -139,7 +139,7 @@ export async function DELETE(request: NextRequest, context: any) {
       );
     }
 
-    const targetUrl = `${BASE_URL}/api/posts/${postId}`;
+    const targetUrl = `${BASE_URL}/api/post/${postId}`;
     const headers = createHeaders(request);
     
     console.log("Delete post - Proxy URL:", targetUrl);

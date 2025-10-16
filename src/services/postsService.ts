@@ -14,7 +14,7 @@ export class PostsService {
   static async getAllPosts(): Promise<Post[]> {
     console.log("Fetching all posts");
     try {
-      const data = await apiFetcher<any>("/api/posts");
+      const data = await apiFetcher<any>("/api/post");
       console.log("Raw posts API response:", data);
 
       const items: any[] = Array.isArray(data)
@@ -32,8 +32,14 @@ export class PostsService {
         title: raw.title || raw.name || "Untitled Post",
         content: raw.content || raw.description || raw.body,
         author: raw.author || raw.createdBy || raw.user?.name,
+        user: {
+          name: raw.author || raw.createdBy || raw.user?.name || 'Unknown User',
+          avatar: raw.avatar || raw.user?.avatar || '/default-avatar.png'
+        },
         createdAt: raw.createdAt || raw.created_at || raw.dateCreated,
         updatedAt: raw.updatedAt || raw.updated_at || raw.dateUpdated,
+        likes: raw.likes || 0,
+        comments: raw.comments || 0,
         ...raw,
       }));
     } catch (error) {
@@ -49,7 +55,7 @@ export class PostsService {
   }): Promise<Post> {
     console.log("Creating post:", postData);
     try {
-      const result = await apiFetcher<any>("/api/posts", {
+      const result = await apiFetcher<any>("/api/post", {
         method: "POST",
         body: JSON.stringify(postData),
       });
