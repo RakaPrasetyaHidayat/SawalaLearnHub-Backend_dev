@@ -97,20 +97,29 @@ function normalizeMe(raw: any): any {
 
 // Fetch current user with method and path fallbacks
 export async function getCurrentUser(): Promise<any> {
+  const API_BASE =
+    process.env.NEXT_PUBLIC_API_URL || "https://learnhubbackenddev.vercel.app";
+
   const attempts: Array<{ endpoint: string; options?: RequestInit }> = [
-    // Prefer GET first (to avoid "Cannot POST" 404s), then POST
+    // Try absolute backend endpoints first to avoid local Next.js API proxy 404s
+    { endpoint: `${API_BASE}/api/v1/auth/me` },
+    { endpoint: `${API_BASE}/api/v1/auth/me`, options: { method: "POST" } },
+
+    { endpoint: `${API_BASE}/api/v1/users/me` },
+    { endpoint: `${API_BASE}/api/v1/users/me`, options: { method: "POST" } },
+
+    { endpoint: `${API_BASE}/api/auth/me` },
+    { endpoint: `${API_BASE}/api/auth/me`, options: { method: "POST" } },
+
+    { endpoint: `${API_BASE}/auth/me` },
+    { endpoint: `${API_BASE}/auth/me`, options: { method: "POST" } },
+
+    { endpoint: `${API_BASE}/users/me` },
+    { endpoint: `${API_BASE}/users/me`, options: { method: "POST" } },
+
+    // Fallback to relative/local patterns (useful when proxied through Next.js)
     { endpoint: "/api/auth/me" },
     { endpoint: "/api/auth/me", options: { method: "POST" } },
-
-    { endpoint: "/auth/me" },
-    { endpoint: "/auth/me", options: { method: "POST" } },
-
-    { endpoint: "/api/v1/auth/me" },
-    { endpoint: "/api/v1/auth/me", options: { method: "POST" } },
-
-    // Other common patterns used by backends
-    { endpoint: "/api/users/me" },
-    { endpoint: "/api/users/me", options: { method: "POST" } },
 
     { endpoint: "/users/me" },
     { endpoint: "/users/me", options: { method: "POST" } },
@@ -122,9 +131,17 @@ export async function getCurrentUser(): Promise<any> {
   let lastError: any = null;
   for (const a of attempts) {
     try {
+      // Helpful debug logging to see which endpoint is attempted and with which method
+      try {
+        // avoid sensitive headers printing — we only log endpoint and method
+        console.debug("getCurrentUser: trying endpoint", a.endpoint, a.options?.method || "GET");
+      } catch {}
       const raw = await apiFetcher<any>(a.endpoint, a.options || {});
       return normalizeMe(raw);
     } catch (e: any) {
+      try {
+        console.debug("getCurrentUser: endpoint failed", a.endpoint, e?.message || e);
+      } catch {}
       lastError = e;
       const msg = e?.message || "";
       // Only continue to next attempt on 404/405 or method/path issues

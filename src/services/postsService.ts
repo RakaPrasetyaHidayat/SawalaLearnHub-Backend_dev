@@ -1,5 +1,7 @@
 import { apiFetcher } from "./fetcher";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://learnhubbackenddev.vercel.app";
+
 export interface Post {
   id: string;
   title: string;
@@ -123,7 +125,41 @@ export async function listPosts(opts?: { page?: number; limit?: number }) {
 
 // Compatibility: some callsites expect listMyPosts
 export async function listMyPosts(opts?: { page?: number; limit?: number }) {
-  return listPosts(opts);
+  // Prefer backend /api/post/me endpoint (absolute) if available. Fall back to all posts.
+  try {
+    const url = `${API_BASE}/api/post/me`;
+    const data = await apiFetcher<any>(url);
+
+    const items: any[] = Array.isArray(data)
+      ? data
+      : Array.isArray(data?.data)
+      ? data.data
+      : Array.isArray(data?.posts)
+      ? data.posts
+      : [];
+
+    const posts = items.map((raw) => ({
+      id: String(raw.id || raw._id || Math.random().toString(36).slice(2)),
+      title: raw.title || raw.name || "Untitled Post",
+      content: raw.content || raw.description || raw.body,
+      author: raw.author || raw.createdBy || raw.user?.name,
+      user: {
+        name: raw.author || raw.createdBy || raw.user?.name || 'Unknown User',
+        avatar: raw.avatar || raw.user?.avatar || '/default-avatar.png'
+      },
+      createdAt: raw.createdAt || raw.created_at || raw.dateCreated,
+      updatedAt: raw.updatedAt || raw.updated_at || raw.dateUpdated,
+      likes: raw.likes || 0,
+      comments: raw.comments || 0,
+      ...raw,
+    }));
+
+    return { items: posts, total: posts.length, page: opts?.page || 1 };
+  } catch (err) {
+    // If `/api/post/me` fails (404/CORS/etc), gracefully fall back to regular listing
+    console.warn("listMyPosts: /api/post/me failed, falling back to listPosts:", err);
+    return listPosts(opts);
+  }
 }
 
 export async function createPost(data: { content: string; [key: string]: any }) {

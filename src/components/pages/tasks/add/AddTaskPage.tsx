@@ -174,10 +174,10 @@ export default function AddTaskPage() {
             className="w-full p-2 border border-gray-300 rounded"
           >
             <option value="">Select Division</option>
-            <option value="0e5c4601-d68a-45d0-961f-b11e0472a71b">DevOps</option>
-            <option value="3eb66585-1275-4482-8342-0bb2d0d2188e">Frontend</option>
-            <option value="417faa41-877e-4fe1-b2d4-b15f2ecdbfde">UI/UX</option>
-            <option value="479762a6-10bd-4d9f-973a-648596489ff8">Backend</option>
+            <option value="DevOps">DevOps</option>
+            <option value="Frontend">Frontend</option>
+            <option value="UI/UX">UI/UX</option>
+            <option value="Backend">Backend</option>
           </select>
         </div>
         <div>

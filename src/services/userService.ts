@@ -86,7 +86,7 @@ export async function fetchMembers(): Promise<Member[]> {
     }
 
     // Fallback to raw fetcher (this throws on HTTP errors like 401)
-  const raw = await apiFetcher("/api/v1/users");
+  const raw = await apiFetcher("/api/users/pending");
     return normalizeMembers(raw);
   } catch (error) {
     console.error("Failed to fetch members, using mock data:", error);
@@ -211,34 +211,26 @@ export const updateUserStatus = async (
   status: string
 ) => {
   try {
-    const token = getAuthToken();
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || "https://learnhubbackenddev.vercel.app";
+    const absoluteUrl = `${baseUrl}/api/users/${userId}/status`;
+    console.log("Updating user status at absolute URL:", absoluteUrl, "with body:", { status });
 
-    const baseUrl =
-      process.env.NEXT_PUBLIC_API_URL ||
-      "https://learnhubbackenddev.vercel.app";
-    const url = `${baseUrl}/api/v1/users/${userId}/status`;
-    console.log("Updating user status at URL:", url, "with body:", { status });
-
-    const response = await fetch(url, {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      },
-      body: JSON.stringify({ status }),
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      const message = text || response.statusText || "Failed to update status";
-      throw new Error(message);
+    try {
+      // Use apiFetcher so Authorization header and errors are handled consistently
+      return await apiFetcher<any>(absoluteUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
+    } catch (err) {
+      console.warn("updateUserStatus absolute endpoint failed, falling back to pending path:", err);
+      const fallbackUrl = `${baseUrl}/api/users/pending/${userId}/status`;
+      return await apiFetcher<any>(fallbackUrl, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      });
     }
-
-    if (response.status === 204) {
-      return null;
-    }
-
-    return response.json();
   } catch (error) {
     console.error("Failed to update user status:", error);
     throw error;

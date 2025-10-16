@@ -47,8 +47,14 @@ export function removeAuthToken() {
 export async function apiFetcher<T = any>(path: string, options: RequestInit = {}): Promise<T> {
   // Use relative path for /api/* routes in browser to hit Next.js proxy
   const isBrowser = typeof window !== "undefined";
+  const isAbsolute = /^https?:\/\//i.test(path);
   const useRelative = isBrowser && path.startsWith("/api");
-  const url = useRelative ? path : `${API_BASE}${path}`;
+  // Ensure we correctly join API_BASE and a non-leading-slash path
+  const url = useRelative
+    ? path
+    : isAbsolute
+    ? path
+    : `${API_BASE}${path.startsWith("/") ? "" : "/"}${path}`;
   console.log("Fetching:", url);
 
   const controller = new AbortController();

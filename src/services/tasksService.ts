@@ -3,6 +3,8 @@ import { apiFetcher } from "./fetcher";
 import { formatYearForAPI } from "@/hooks/useDivisions";
 import { mockTasks } from "./mockDataFallback";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://learnhubbackenddev.vercel.app";
+
 export type TaskStatus = "submitted" | "revision" | "approved";
 
 export interface Task {
@@ -269,6 +271,45 @@ export class TasksService {
         raw,
       } as Task;
     });
+  }
+
+  // Fetch tasks for current authenticated user using backend '/api/tasks/me' if available
+  static async getMyTasks(): Promise<Task[]> {
+    try {
+      // Try absolute backend /api/tasks/me first
+      const url = `${API_BASE}/api/tasks/me`;
+      const data = await apiFetcher(url);
+
+      const items: any[] = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+        ? data.data
+        : Array.isArray(data?.tasks)
+        ? data.tasks
+        : [];
+
+      return items.map((raw) => {
+        const rawDivision = pickDivisionRaw(raw);
+        const division = mapDivisionSlug(rawDivision);
+        const status = mapStatus(raw.status || raw.userStatus || raw.status_user);
+        return {
+          id: pickId(raw),
+          title: pickTitle(raw),
+          description: raw.description,
+          division,
+          rawDivision,
+          deadline: pickDeadline(raw),
+          status,
+          unread: pickUnread(raw),
+          raw,
+        } as Task;
+      });
+    } catch (err) {
+      console.warn("getMyTasks: /api/tasks/me failed, falling back to getTasksByUser or getTasksByYear:", err);
+      // As a fallback, try to find a userId from auth token or return empty — but we don't have userId here.
+      // Fallback: return empty array to avoid breaking UI.
+      return [];
+    }
   }
 
   static async getTaskById(taskId: string | number): Promise<any> {

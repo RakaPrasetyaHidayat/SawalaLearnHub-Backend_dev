@@ -62,14 +62,10 @@ export async function GET(request: NextRequest) {
       },
       {
         method: "GET",
-        url: `${base}/api/v1/users?${queryString}`,
+        url: `${base}/api/users/pending?${queryString}`,
         headers: { Accept: "application/json" },
       },
-      {
-        method: "GET",
-        url: `${base}/v1/users?${queryString}`,
-        headers: { Accept: "application/json" },
-      },
+      
     ];
 
     // Get authorization header from the incoming request

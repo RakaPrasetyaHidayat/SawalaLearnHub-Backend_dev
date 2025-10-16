@@ -4,55 +4,41 @@ import Image from 'next/image'
 import BackButton from '@/components/atoms/ui/back-button'
 import SimpleTaskCard from '@/components/molecules/cards/simple-task-card/simple-task-card'
 import { useRouter } from 'next/navigation'
-
-interface ApprovedTask {
-  id: string
-  title: string
-  deadline: string
-  submittedAt: string
-}
-
-// Mock data for approved tasks - in real app this would come from API
-const mockApprovedTasks: ApprovedTask[] = [
-  {
-    id: '1',
-    title: 'Pre Test 1 for All Intern',
-    deadline: '14 Aug 2024, 18:00',
-    submittedAt: '2024-08-10T10:00:00Z'
-  },
-  {
-    id: '2',
-    title: 'Pre Test 1 for All Intern',
-    deadline: '14 Aug 2024, 18:00',
-    submittedAt: '2024-08-10T10:00:00Z'
-  },
-  {
-    id: '3',
-    title: 'Pre Test 1 for All Intern',
-    deadline: '14 Aug 2024, 18:00',
-    submittedAt: '2024-08-10T10:00:00Z'
-  },
-  {
-    id: '4',
-    title: 'Pre Test 1 for All Intern',
-    deadline: '14 Aug 2024, 18:00',
-    submittedAt: '2024-08-10T10:00:00Z'
-  }
-]
+import { useEffect, useState } from 'react'
+import { TasksService, Task } from '@/services/tasksService'
 
 export default function MyTasksClient() {
   const router = useRouter()
+  const [tasks, setTasks] = useState<Task[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleViewDetail = (taskId: string) => {
-    // Navigate to task detail page
+  useEffect(() => {
+    const load = async () => {
+      try {
+        setLoading(true)
+        const data = await TasksService.getMyTasks()
+        setTasks(data)
+      } catch (e) {
+        console.error('Failed to load my tasks', e)
+        setError('Gagal memuat tugas saya')
+      } finally {
+        setLoading(false)
+      }
+    }
+    load()
+  }, [])
+
+  const handleViewDetail = (taskId: string | number) => {
     router.push(`/main-Page/about/division-of/detail-task?id=${taskId}`)
   }
 
-  const handleComment = (taskId: string) => {
-    // Navigate to comment/feedback page or open comment modal
+  const handleComment = (taskId: string | number) => {
     console.log('Open comments for task:', taskId)
-    // router.push(`/profile/tasks/${taskId}/comments`)
   }
+
+  if (loading) return <div className="p-4 text-center text-gray-500">Memuat...</div>
+  if (error) return <div className="p-4 text-center text-red-500">{error}</div>
 
   return (
     <div className='justify-center items-center h-full'>
@@ -68,11 +54,12 @@ export default function MyTasksClient() {
 
       {/* Tasks List */}
       <div className='space-y-3 p-4'>
-        {mockApprovedTasks.map(task => (
+        {tasks.length === 0 && <div className="text-gray-500">Tidak ada tugas</div>}
+        {tasks.map(task => (
           <SimpleTaskCard
-            key={task.id}
+            key={String(task.id)}
             title={task.title}
-            deadline={task.deadline}
+            deadline={task.deadline || ''}
             onViewDetail={() => handleViewDetail(task.id)}
             onComment={() => handleComment(task.id)}
             className="shadow-sm"

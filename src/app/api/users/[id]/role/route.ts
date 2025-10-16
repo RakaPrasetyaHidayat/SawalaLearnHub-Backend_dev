@@ -74,7 +74,7 @@ export async function PUT(request: NextRequest, context: any) {
       },
       {
         method: "PUT",
-        url: `${base}/api/v1/users/${userId}/role`,
+        url: `${base}/api/users/pending${userId}/role`,
         headers: {
           "Content-Type": "application/json",
           Accept: "application/json",

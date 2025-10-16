@@ -1,5 +1,7 @@
 import { apiFetcher } from "./fetcher";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "https://learnhubbackenddev.vercel.app";
+
 // Use the authenticated fetcher instead of custom apiRequest
 
 // User management functions
@@ -19,29 +21,39 @@ export async function getUsers(params?: {
 
   const queryString = queryParams.toString();
   const endpoint = queryString
-    ? `/api/v1/users?${queryString}`
-    : "/api/v1/users";
+    
+     "/api/users/pending";
 
   return apiFetcher<any>(endpoint);
 }
 
 // Admin specific user management functions
 export async function getPendingUsers() {
-  return apiFetcher<any>("/api/v1/users/pending");
+  return apiFetcher<any>("/api/users/pending");
 }
 
 export async function updateUserStatus(
   userId: string | number,
   status: string
 ) {
-  return apiFetcher<any>(`/api/v1/users/${userId}/status`, {
-    method: "PUT",
-    body: JSON.stringify({ status }),
-  });
+  // Prefer backend canonical endpoint /api/users/:id/status (absolute),
+  // fall back to older /api/users/pending/:id/status if needed.
+  try {
+    return await apiFetcher<any>(`${API_BASE}/api/users/${userId}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
+  } catch (err) {
+    console.warn("apiClients.updateUserStatus: absolute endpoint failed, falling back:", err);
+    return apiFetcher<any>(`/api/users/pending/${userId}/status`, {
+      method: "PUT",
+      body: JSON.stringify({ status }),
+    });
+  }
 }
 
 export async function deleteUser(userId: string | number) {
-  return apiFetcher<any>(`/api/v1/users/${userId}`, {
+  return apiFetcher<any>(`/api/users/pending/${userId}`, {
     method: "DELETE",
   });
 }
@@ -71,14 +83,55 @@ export async function register(payload: {
 // Profile management functions
 export async function getUserProfile(userId: string) {
   console.log("Fetching user profile for userId:", userId);
-  return apiFetcher<any>(`/api/v1/users/${userId}`);
+  return apiFetcher<any>(`/api/users/pending/${userId}`);
 }
 
 export async function updateUserProfile(userId: string, profileData: any) {
-  return apiFetcher<any>(`/api/v1/users/${userId}`, {
+  return apiFetcher<any>(`/api/users/pending/${userId}`, {
     method: "PUT",
     body: JSON.stringify(profileData),
   });
+}
+
+// Helpers for the current authenticated user (me)
+export async function getMyProfile() {
+  // Try absolute backend /api/users/me first
+  try {
+    return await apiFetcher<any>(`${API_BASE}/api/users/me`);
+  } catch (err) {
+    console.warn("getMyProfile absolute endpoint failed, trying relative fallbacks:", err);
+    // Try some reasonable relative fallbacks
+    try {
+      return await apiFetcher<any>(`/api/users/profile`);
+    } catch (err2) {
+      console.warn("getMyProfile fallback /api/users/profile failed, trying /users/me:", err2);
+      return apiFetcher<any>(`/users/me`);
+    }
+  }
+}
+
+export async function updateMyProfile(profileData: any) {
+  // Prefer backend absolute /api/users/me (PUT) when available
+  try {
+    return await apiFetcher<any>(`${API_BASE}/api/users/me`, {
+      method: "PUT",
+      body: JSON.stringify(profileData),
+    });
+  } catch (err) {
+    console.warn("updateMyProfile absolute endpoint failed, trying relative fallbacks:", err);
+    try {
+      return await apiFetcher<any>(`/api/users/profile`, {
+        method: "PUT",
+        body: JSON.stringify(profileData),
+      });
+    } catch (err2) {
+      console.warn("updateMyProfile fallback /api/users/profile failed, trying /api/users/pending:", err2);
+      return apiFetcher<any>(`/api/users/pending/${profileData?.id}`, {
+        method: "PUT",
+        body: JSON.stringify(profileData),
+      });
+    }
+  }
 }
 
 // Generic data fetching functions

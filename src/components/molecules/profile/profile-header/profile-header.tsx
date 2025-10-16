@@ -9,6 +9,7 @@ import {
 import { useEffect, useState } from "react";
 import { getCurrentUser } from "@/services/authService";
 import { getAuthState } from "@/utils/auth";
+import { getDisplayDivision } from "@/services/division";
 
 interface ProfileHeaderProps {
   onEditProfile?: () => void;
@@ -56,14 +57,7 @@ export default function ProfileHeader({ onEditProfile }: ProfileHeaderProps) {
               ? merged.email.split("@")[0]
               : "User") ||
             "User",
-          division:
-            (typeof merged?.division === "object" && merged?.division?.name
-              ? merged.division.name
-              : merged?.division) ||
-            merged?.division_id ||
-            merged?.division_name ||
-            merged?.divisi ||
-            "",
+          division: getDisplayDivision(merged) || "",
           school_name:
             merged?.school_name || merged?.school || merged?.institution || "",
           profileImage:

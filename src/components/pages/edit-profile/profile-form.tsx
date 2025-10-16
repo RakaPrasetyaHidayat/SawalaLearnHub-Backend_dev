@@ -5,6 +5,7 @@ import { Input } from "@/components/atoms/ui/input";
 import { Button } from "@/components/atoms/ui/button";
 import { getCurrentUser } from "@/services/authService";
 import { getAuthState } from "@/utils/auth";
+import { getDisplayDivision } from "@/services/division";
 
 interface ProfileData {
   name: string;
@@ -41,14 +42,7 @@ export function ProfileForm() {
               ? merged.email.split("@")[0]
               : "") ||
             "",
-          division:
-            (typeof merged?.division === "object" && merged?.division?.name
-              ? merged.division.name
-              : merged?.division) ||
-            merged?.division_id ||
-            merged?.division_name ||
-            merged?.divisi ||
-            "",
+          division: getDisplayDivision(merged) || "",
           school:
             merged?.school_name || merged?.school || merged?.institution || "",
         });

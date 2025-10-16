@@ -58,7 +58,7 @@ export async function GET(
       },
       {
         method: "GET",
-        url: `${base}/api/v1/users/${userId}`,
+        url: `${base}/api/users/pending${userId}`,
         headers: { Accept: "application/json" },
       },
       {
@@ -221,7 +221,7 @@ export async function DELETE(
       },
       {
         method: "DELETE",
-        url: `${base}/api/v1/users/${userId}`,
+        url: `${base}/api/users/pending${userId}`,
         headers: { Accept: "application/json" },
       },
       {

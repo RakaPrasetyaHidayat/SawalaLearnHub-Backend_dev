@@ -801,3 +801,38 @@ export class DivisionService {
     }
   }
 }
+
+/**
+ * Helper: Get a user-friendly division display string from a user object.
+ * Priority: division_name -> division.name -> division (string) -> division_id -> ''
+ */
+export function getDisplayDivision(user: any): string {
+  if (!user) return "";
+  // Prefer explicit division_name field
+  if (user.division_name && String(user.division_name).trim())
+    return String(user.division_name).trim();
+
+  // If division is object with name
+  if (user.division && typeof user.division === "object") {
+    if (user.division.name && String(user.division.name).trim())
+      return String(user.division.name).trim();
+  }
+
+  // If division is plain string but not a UUID, prefer it
+  if (user.division && typeof user.division === "string") {
+    const div = String(user.division).trim();
+    // If it's a UUID, avoid showing raw UUID; return empty so callers can try other fields
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    if (!uuidRe.test(div)) return div;
+  }
+
+  // Fallback to division_id or other fields
+  if (user.division_id && String(user.division_id).trim())
+    return String(user.division_id).trim();
+
+  // If still not available, try other aliases
+  if (user.divisi && String(user.divisi).trim()) return String(user.divisi).trim();
+  if (user.bidang && String(user.bidang).trim()) return String(user.bidang).trim();
+
+  return "";
+}
