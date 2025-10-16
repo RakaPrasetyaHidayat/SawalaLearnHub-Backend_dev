@@ -14,6 +14,12 @@ Base path: `/api` (depending on deployment)
 - GET /api/users/division/:division_id - get users for a division (accepts UUID or human-friendly name)
 - PATCH /api/users/:id (Admin) - update user profile (full_name, division_id, school_name, channel_year)
 - PATCH /api/users/me - update own profile
+  - PATCH /api/users/me accepts UI-friendly keys:
+    - `name` or `full_name`
+    - `division` (human-friendly name) or `division_id` (UUID)
+    - `school` or `school_name`
+    - `channel_year`
+    Example body: `{ "name": "Raka", "division": "Backend", "school": "SMK A", "channel_year": 2025 }`
 - PATCH /api/users/:id/accept (Admin) - accept user (set status APPROVED)
 - PATCH /api/users/:id/status (Admin) - change user status (REJECTED/APPROVED)
 

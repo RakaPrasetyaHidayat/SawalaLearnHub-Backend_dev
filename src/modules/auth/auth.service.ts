@@ -206,16 +206,48 @@ export class AuthService {
 
   async me(userId: string): Promise<AuthResponse<AuthUser>> {
     return this.handleDatabaseOperation(async () => {
+      // Fetch core user fields from the users table (keeps internal fields like password isolated)
       const { data: user, error } = await this.adminClient
         .from('users')
-        .select(
-          'id, email, full_name, role, status, channel_year, school_name, division_id',
-        )
+        .select('id, email, full_name, role, status, channel_year, school_name, division_id')
         .eq('id', userId)
         .maybeSingle();
 
       if (error) throw new InternalServerErrorException(error.message);
       if (!user) throw new UnauthorizedException('User not found');
+
+      // Additionally, fetch division-related data from the users_with_division view
+      // and merge it into the returned profile. This ensures division info comes from the view.
+      try {
+        const { data: viewUser, error: viewErr } = await this.adminClient
+          .from('users_with_division')
+          // select only division-related fields the view is expected to provide
+          .select('division_id, division_name, channel_year')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (!viewErr && viewUser) {
+          // Prefer view values when present. Provide a friendly label for UI.
+          if (typeof viewUser.division_id !== 'undefined') user.division_id = viewUser.division_id;
+          if (typeof viewUser.division_name !== 'undefined') {
+            (user as any).division_name = viewUser.division_name;
+            // Friendly label used by frontend to show text instead of UUID
+            (user as any).division_label = viewUser.division_name;
+          } else if (user.division_id) {
+            // Fallback: if view doesn't provide name but user has division_id (string), use it as label
+            (user as any).division_label = String(user.division_id);
+          }
+          if (typeof viewUser.channel_year !== 'undefined') user.channel_year = viewUser.channel_year;
+        } else {
+          // If view read failed, still provide a label fallback using division_id
+          if (!((user as any).division_label) && user.division_id) {
+            (user as any).division_label = String(user.division_id);
+          }
+        }
+      } catch (e) {
+        // Non-fatal: if view read fails, return core user data anyway
+        // Logging omitted to avoid throwing from me endpoint
+      }
 
       return {
         status: 'success',

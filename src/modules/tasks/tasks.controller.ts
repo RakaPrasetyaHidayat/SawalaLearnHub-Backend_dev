@@ -217,6 +217,13 @@ export class TasksController {
     return this.tasksService.getUserTasks(userId);
   }
 
+  // Get tasks for current authenticated user
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  async getMyTasks(@GetUser('id') userId: string) {
+    return this.tasksService.getUserTasks(userId);
+  }
+
   @Get('available')
   @UseGuards(JwtAuthGuard)
   getAvailableTasks() {

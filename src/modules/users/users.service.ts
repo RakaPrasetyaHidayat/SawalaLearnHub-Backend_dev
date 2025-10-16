@@ -15,6 +15,10 @@ import { DB_FUNCTIONS, TABLE_NAMES, buildPaginationQuery, handleDbError } from '
 export class UsersService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
+  // Explicit select lists to match DB schema. Use INTERNAL when password or internal columns are required.
+  private readonly USERS_SELECT_PUBLIC = 'id,email,full_name,role,status,channel_year,angkatan,created_at,updated_at,school_name,division_id';
+  private readonly USERS_SELECT_INTERNAL = 'id,email,full_name,password,role,status,channel_year,angkatan,created_at,updated_at,school_name,division_id';
+
   async getUsersByDivision(division_id: string, year?: string) {
     try {
       const client = this.supabaseService.getClient(true);
@@ -40,8 +44,8 @@ export class UsersService {
       // If year provided, return users for that division+year
       if (year) {
         let q = client
-          .from('users')
-          .select('id, email, full_name, role, status, division_id, school_name, channel_year');
+          .from('users_with_division')
+          .select('id, full_name, role, status, division_id, school_name, channel_year');
 
         if (isUuid) q = q.eq('division_id', division_id);
         else {
@@ -64,7 +68,7 @@ export class UsersService {
       }
 
       // If no year provided, return counts per channel_year for this division
-      let q2 = client.from('users').select('channel_year');
+  let q2 = client.from('users_with_division').select('channel_year');
       if (isUuid) q2 = q2.eq('division_id', division_id);
       else {
         const normalized = normalizeDivisionName(division_id);
@@ -99,7 +103,7 @@ export class UsersService {
       let q = this.supabaseService
         .getClient(true)
         .from('users')
-        .select('id, email, full_name, role, status, division_id, school_name, channel_year')
+        .select(this.USERS_SELECT_PUBLIC)
         .eq('channel_year', year);
 
       if (onlyApproved) {
@@ -185,7 +189,7 @@ export class UsersService {
       const queryPromise = this.supabaseService
         .getClient()
         .from('users')
-        .select('id, email, full_name, role, status, channel_year, created_at')
+        .select(this.USERS_SELECT_PUBLIC)
         .order('created_at', { ascending: false })
         .limit(50);
 
@@ -327,7 +331,7 @@ export class UsersService {
     const query = this.supabaseService
       .getClient(true)
       .from('users')
-      .select('*', { count: 'exact' });
+      .select(this.USERS_SELECT_PUBLIC, { count: 'exact' });
 
     if (search) {
       query.or(`full_name.ilike.%${search}%,email.ilike.%${search}%`);
@@ -363,39 +367,73 @@ export class UsersService {
       if (typeof update.school_name !== 'undefined') payload.school_name = update.school_name;
       else if (typeof update.school !== 'undefined') payload.school_name = update.school;
 
-      // Support division (human-friendly) or division_id (uuid)
-      if (typeof update.division_id !== 'undefined' && update.division_id !== null) {
-        payload.division_id = update.division_id;
-      } else if (typeof update.division !== 'undefined' && update.division !== null) {
-        // attempt to resolve division name to UUID
+      // Support division (human-friendly text only). UI should send text (e.g. "Backend"),
+      // service will translate to DB-appropriate value (division_id UUID when possible,
+      // or normalized enum/text value otherwise).
+      if (typeof update.division !== 'undefined' && update.division !== null) {
+        // We'll determine which column exists on users table for division
         const raw = String(update.division).trim();
-        // if looks like UUID, use directly
         const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-        if (uuidRegex.test(raw)) {
-          payload.division_id = raw;
-        } else {
-          // try exact match on divisions.name, otherwise ilike
-          const client = this.supabaseService.getClient(true);
-          const lookup = raw.replace(/[\s\-\/]+/g, '');
-          const { data: divisionsExact, error: divErr } = await client
-            .from('divisions')
-            .select('id,name')
-            .ilike('name', `%${raw}%`)
-            .limit(5);
-          if (divErr) throw divErr;
-          if (!divisionsExact || divisionsExact.length === 0) {
-            // fallback: try uppercase enum-like names
-            const up = raw.toUpperCase().replace(/[^A-Z0-9]/g, '_');
-            const { data: divisions2 } = await client.from('divisions').select('id,name').eq('name', up).limit(1);
-            if (divisions2 && divisions2.length === 1) payload.division_id = divisions2[0].id;
-            else throw new Error('Division not found');
-          } else if (divisionsExact.length === 1) {
-            payload.division_id = divisionsExact[0].id;
+
+        const client = this.supabaseService.getClient(true);
+
+        // Fetch one user row to inspect which division column exists
+    const { data: existingUserRow, error: userRowErr } = await client.from('users').select('*').eq('id', userId).maybeSingle();
+        if (userRowErr) throw userRowErr;
+
+        // Normalize raw input to candidate keys
+        const normalizeInput = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, '');
+        const candidates = [raw, raw.replace(/\s+/g, ''), raw.toUpperCase(), raw.toLowerCase()];
+
+        // 1) Try to find matching division row in `divisions` table (exact or ilike)
+        const { data: matchedDivisions, error: divErr } = await client
+          .from('divisions')
+          .select('id,name')
+          .ilike('name', `%${raw}%`)
+          .limit(5);
+        if (divErr) throw divErr;
+
+        if (matchedDivisions && matchedDivisions.length === 1) {
+          // Use id when users table has division_id column
+          if (existingUserRow && Object.prototype.hasOwnProperty.call(existingUserRow, 'division_id')) {
+            payload.division_id = matchedDivisions[0].id;
           } else {
-            // multiple matches -> pick the best (exact case-insensitive match) or throw ambiguous
-            const exactCi = divisionsExact.find((d: any) => String(d.name).toLowerCase() === raw.toLowerCase());
-            if (exactCi) payload.division_id = exactCi.id;
-            else throw new Error('Multiple divisions matched; please provide a division UUID');
+            payload['division_name'] = matchedDivisions[0].name;
+          }
+        } else if (matchedDivisions && matchedDivisions.length > 1) {
+          // try exact case-insensitive match
+          const exactCi = matchedDivisions.find((d: any) => String(d.name).toLowerCase() === raw.toLowerCase());
+          if (exactCi) {
+            if (existingUserRow && Object.prototype.hasOwnProperty.call(existingUserRow, 'division_id')) {
+              payload.division_id = exactCi.id;
+            } else {
+              payload['division_name'] = exactCi.name;
+            }
+          } else {
+            // ambiguous matches
+            throw new Error('Multiple divisions matched; please pick the exact division from the dropdown');
+          }
+        } else {
+          // No divisions table match. Map common UI inputs to canonical enum-like names.
+          const normalized = normalizeInput(raw);
+          let canonical = '';
+          if (normalized.includes('backend')) canonical = 'BACKEND';
+          else if (normalized.includes('front') || normalized.includes('frontend')) canonical = 'FRONTEND';
+          else if (normalized.includes('ui') || normalized.includes('ux')) canonical = 'UI_UX';
+          else if (normalized.includes('devops')) canonical = 'DEVOPS';
+          else canonical = raw.toUpperCase().replace(/[^A-Z0-9]/g, '_');
+
+          // If users table expects a division_id FK, attempt to find division by canonical name
+          if (existingUserRow && Object.prototype.hasOwnProperty.call(existingUserRow, 'division_id')) {
+            const { data: byName } = await client.from('divisions').select('id,name').eq('name', canonical).limit(1);
+            if (byName && byName.length === 1) payload.division_id = byName[0].id;
+            else {
+              // fallback: try to set division_id column to canonical string (may violate FK if column expects UUID)
+              payload.division_id = canonical;
+            }
+          } else {
+            // users table likely stores division as text/enum; set normalized canonical name
+            payload['division_name'] = canonical;
           }
         }
       }
@@ -406,16 +444,27 @@ export class UsersService {
         throw new BadRequestException('No valid fields provided for update');
       }
 
-      const { data, error } = await this.supabaseService
-        .getClient()
-        .from('users')
-        .update(payload)
-        .eq('id', userId)
-        .select()
-        .single();
+      try {
+        const { data, error } = await this.supabaseService
+          .getClient()
+          .from('users')
+          .update(payload)
+          .eq('id', userId)
+          .select()
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        return data;
+      } catch (err: any) {
+        // Common FK error occurs when DB expects a division UUID or a specific enum value
+        const msg = (err && err.message) ? String(err.message) : '';
+        if (msg.toLowerCase().includes('foreign key') || msg.toLowerCase().includes('violates foreign key')) {
+          throw new BadRequestException(
+            'Division value invalid. Please provide a valid division UUID (division_id) or an existing division name. Use GET /api/users/year/division_id or query the divisions table to find valid values.'
+          );
+        }
+        throw err;
+      }
     } catch (error) {
       throw handleDbError(error);
     }
@@ -464,5 +513,37 @@ export class UsersService {
 
     if (error) throw error;
     return data;
+  }
+
+  // Upload avatar file to Supabase storage and update user's avatar_url
+  async uploadAvatar(userId: string, file: Express.Multer.File) {
+    try {
+      const client = this.supabaseService.getClient(true);
+      const bucket = 'avatars';
+      const fileName = `avatars/${userId}/${Date.now()}-${file.originalname}`;
+
+      const { data: uploadData, error: uploadErr } = await client.storage
+        .from(bucket)
+        .upload(fileName, file.buffer, { contentType: file.mimetype, upsert: true });
+
+      if (uploadErr) {
+        // Try to provide a helpful error
+        throw uploadErr;
+      }
+
+      const publicUrl = client.storage.from(bucket).getPublicUrl(uploadData.path).data.publicUrl;
+
+      const { data, error } = await client
+        .from('users')
+        .update({ avatar_url: publicUrl })
+        .eq('id', userId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      throw handleDbError(error);
+    }
   }
 }

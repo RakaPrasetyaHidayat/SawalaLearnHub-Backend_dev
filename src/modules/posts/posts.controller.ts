@@ -120,4 +120,11 @@ export class PostsController {
   getUserPosts(@Param('userId') userId: string) {
     return this.postsService.getUserPosts(userId);
   }
+
+  // Get posts for current authenticated user
+  @Get('me')
+  @UseGuards(JwtAuthGuard)
+  getMyPosts(@GetUser('id') userId: string) {
+    return this.postsService.getUserPosts(userId);
+  }
 }

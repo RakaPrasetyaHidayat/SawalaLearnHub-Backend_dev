@@ -1,6 +1,7 @@
 import {
   Controller,
   Get,
+  Post,
   Patch,
   Put,
   Delete,
@@ -12,6 +13,9 @@ import {
   HttpStatus,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
+import { UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
+import { memoryStorage } from 'multer';
 import { UsersService } from './users.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
@@ -356,6 +360,38 @@ export class UsersController {
         { status: 'error', message: error.message },
         HttpStatus.BAD_REQUEST,
       );
+    }
+  }
+
+  // Upload avatar for current user
+  @Post('me/avatar')
+  @Patch('me/avatar')
+  @UseGuards(JwtAuthGuard)
+  @UseInterceptors(
+    FileFieldsInterceptor(
+      [
+        { name: 'file', maxCount: 1 },
+        { name: 'avatar', maxCount: 1 },
+      ],
+      {
+        storage: memoryStorage(),
+        limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+      },
+    ),
+  )
+  async uploadAvatar(
+    @GetUser('id') userId: string,
+    @UploadedFiles() files?: { file?: Express.Multer.File[]; avatar?: Express.Multer.File[] },
+  ) {
+    try {
+      const file = (files?.file && files.file[0]) || (files?.avatar && files.avatar[0]);
+      if (!file || !file.buffer) {
+        throw new HttpException({ status: 'error', message: 'No file uploaded' }, HttpStatus.BAD_REQUEST);
+      }
+      const uploaded = await this.usersService.uploadAvatar(userId, file);
+      return { status: 'success', message: 'Avatar uploaded', data: uploaded };
+    } catch (error: any) {
+      throw new HttpException({ status: 'error', message: error.message }, HttpStatus.BAD_REQUEST);
     }
   }
 
