@@ -203,12 +203,12 @@ export class TasksService extends BaseService {
       
       const { data: task, error: taskErr } = await adminClient
         .from('tasks')
-        .select('id,deadline,title')
+        .select('id,deadline,title,status')
         .eq('id', resolvedTaskId)
         .single();
       if (taskErr) {
         console.error('[TasksService.submitTask] Task fetch error:', taskErr);
-        
+
         // If task not found, provide more helpful error message
         if (taskErr.code === 'PGRST116') {
           // Get available tasks for debugging
@@ -216,11 +216,11 @@ export class TasksService extends BaseService {
             .from('tasks')
             .select('id,title')
             .limit(5);
-          
-          const availableTasksInfo = availableTasks 
+
+          const availableTasksInfo = availableTasks
             ? availableTasks.map(t => `${t.id} (${t.title})`).join(', ')
             : 'No tasks found';
-            
+
           throw new NotFoundException(
             `Task with ID '${resolvedTaskId}' not found. Available tasks: ${availableTasksInfo}`
           );
@@ -228,6 +228,13 @@ export class TasksService extends BaseService {
         throw taskErr;
       }
       console.log('[TasksService.submitTask] Task found:', task);
+
+      // Check if task is already approved by admin
+      if (task.status === SubmissionStatus.APPROVED) {
+        throw new BadRequestException(
+          `This task has been approved by admin and is no longer accepting submissions.`
+        );
+      }
 
       const now = Date.now();
       let isOverdue = false;
@@ -368,11 +375,31 @@ export class TasksService extends BaseService {
       if (subErr) throw subErr;
       const submittedSet = new Set((submitted || []).map((s: any) => s.task_id));
 
+      // Resolve user's division_id to UUID when necessary (user.division_id may be a name)
+      let resolvedDivisionForQuery = user.division_id;
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(String(resolvedDivisionForQuery))) {
+        // try to find by exact name first, then fuzzy
+        const { data: divsExact, error: divErr } = await adminClient
+          .from('divisions')
+          .select('id,name')
+          .eq('name', String(resolvedDivisionForQuery));
+        if (!divErr && divsExact && divsExact.length === 1) {
+          resolvedDivisionForQuery = divsExact[0].id;
+        } else {
+          const { data: divsF, error: divErr2 } = await adminClient
+            .from('divisions')
+            .select('id,name')
+            .ilike('name', `%${String(resolvedDivisionForQuery)}%`);
+          if (!divErr2 && divsF && divsF.length === 1) resolvedDivisionForQuery = divsF[0].id;
+        }
+      }
+
       // Fetch latest tasks for user's division (and year when available)
       const { data: tasks, error: tasksErr } = await adminClient
         .from('tasks')
         .select('id, created_at, deadline, division_id, channel_year')
-        .eq('division_id', user.division_id)
+        .eq('division_id', resolvedDivisionForQuery)
         .order('created_at', { ascending: false })
         .limit(50);
       if (tasksErr) throw tasksErr;
@@ -910,26 +937,112 @@ export class TasksService extends BaseService {
     try {
       // Use admin client and avoid .single() to prevent PostgREST coercion errors
       const adminClient = this.supabaseService.getClient(true);
-      const { data, error } = await adminClient
+
+      // Get task details
+      const { data: task, error: taskError } = await adminClient
         .from('tasks')
         .select('*')
         .eq('id', taskId)
         .limit(1);
-      if (error) throw error;
+      if (taskError) throw taskError;
 
-      const result = Array.isArray(data) ? data[0] : data;
-      if (!result) {
+      const taskResult = Array.isArray(task) ? task[0] : task;
+      if (!taskResult) {
         throw new NotFoundException('Task not found');
       }
+
+      // Get submissions with user data
+      const { data: submissions, error: submissionsError } = await adminClient
+        .from('task_submissions')
+        .select(`
+          id,
+          user_id,
+          description,
+          submission_status,
+          file_urls,
+          created_at,
+          updated_at,
+          users!inner(
+            id,
+            full_name,
+            email,
+            division_id,
+            school_name,
+            channel_year
+          )
+        `)
+        .eq('task_id', taskId)
+        .order('created_at', { ascending: false });
+
+      if (submissionsError) throw submissionsError;
+
+      const normalizedSubmissions = (submissions || []).map((submission: any) => {
+        const { users: submissionUser, ...submissionData } = submission || {};
+
+        const userProfile = submissionUser
+          ? {
+              id: submissionUser.id,
+              full_name: submissionUser.full_name,
+              email: submissionUser.email,
+              division_id: submissionUser.division_id,
+              school_name: submissionUser.school_name,
+              channel_year: submissionUser.channel_year
+            }
+          : null;
+
+        return {
+          ...submissionData,
+          user: userProfile
+        };
+      });
+
       return {
         status: 'success',
-        data: result
+        data: {
+          ...taskResult,
+          submissions: normalizedSubmissions
+        }
       };
     } catch (error) {
       if (error instanceof NotFoundException) {
         throw error;
       }
       throw new BadRequestException(error.message);
+    }
+  }
+
+  async updateTaskOverallStatus(taskId: string, newStatus: SubmissionStatus, adminId: string) {
+    try {
+      // Verify admin role
+      const adminClient = this.supabaseService.getClient(true);
+      const { data: admin, error: adminErr } = await adminClient
+        .from('users')
+        .select('role')
+        .eq('id', adminId)
+        .single();
+
+      if (adminErr) throw adminErr;
+      if (!admin || admin.role !== UserRole.ADMIN) {
+        throw new UnauthorizedException('Only admins can update task status');
+      }
+
+      // Update task status
+      const { data, error } = await adminClient
+        .from('tasks')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', taskId)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        status: 'success',
+        message: `Task status updated to ${newStatus}`,
+        data
+      };
+    } catch (error) {
+      throw new BadRequestException(error.message || 'Failed to update task status');
     }
   }
 

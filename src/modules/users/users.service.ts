@@ -41,50 +41,100 @@ export class UsersService {
       // Normalize year to number when possible
       const yNum = year ? parseInt(String(year), 10) : undefined;
 
-      // If year provided, return users for that division+year
-      if (year) {
-        let q = client
-          .from('users_with_division')
-          .select('id, full_name, role, status, division_id, school_name, channel_year');
+      // If year provided, attempt to use view `users_with_division` when available; otherwise fallback to join
+      const tryView = async () => {
+        try {
+          let q = client
+            .from('users_with_division')
+            .select('id, full_name, role, status, division_id, division_name, school_name, channel_year');
 
-        if (isUuid) q = q.eq('division_id', division_id);
-        else {
-          const normalized = normalizeDivisionName(division_id);
-          // Try exact normalized match first, fallback to ilike fuzzy
-          q = q.or(`division_id.eq.${normalized},division_id.ilike.%${division_id}%`);
+          if (isUuid) q = q.eq('division_id', division_id);
+          else {
+            const normalized = normalizeDivisionName(division_id);
+            q = q.or(`division_name.eq.${normalized},division_name.ilike.%${division_id}%`);
+          }
+
+          if (!isNaN(Number(yNum))) q = q.eq('channel_year', yNum as any);
+
+          const { data: users, error } = await q;
+          if (error) throw error;
+          return users || [];
+        } catch (e) {
+          // view not available or error: signal to fallback
+          return null;
+        }
+      };
+
+      const viewResult = await tryView();
+      if (viewResult !== null) {
+        if (year) {
+          return {
+            status: 'success',
+            message: 'Users retrieved successfully for the specified year',
+            data: viewResult,
+            count: (viewResult || []).length,
+          };
         }
 
-        if (!isNaN(Number(yNum))) q = q.eq('channel_year', yNum as any);
-
-        const { data: users, error } = await q;
-        if (error) throw handleDbError(error);
-
+        // No year: aggregate counts per channel_year from view
+        const counts: Record<string, number> = {};
+        for (const row of viewResult || []) {
+          const y = String(row.channel_year || 'unknown');
+          counts[y] = (counts[y] || 0) + 1;
+        }
+        const result = Object.entries(counts).map(([channel_year, count]) => ({ channel_year, count }));
+        const total = (viewResult || []).length;
         return {
           status: 'success',
-          message: 'Users retrieved successfully for the specified year',
-          data: users || [],
-          count: (users || []).length,
+          message: 'Division users counts retrieved successfully',
+          data: {
+            total_count: total,
+            by_year: result,
+          },
         };
       }
 
-      // If no year provided, return counts per channel_year for this division
-  let q2 = client.from('users_with_division').select('channel_year');
-      if (isUuid) q2 = q2.eq('division_id', division_id);
-      else {
-        const normalized = normalizeDivisionName(division_id);
-        q2 = q2.or(`division_id.eq.${normalized},division_id.ilike.%${division_id}%`);
+      // Fallback: manually join users and divisions for both year and non-year flows
+      const usersQ = client.from('users').select('id, full_name, role, status, division_id, school_name, channel_year');
+      if (isUuid) usersQ.eq('division_id', division_id);
+      // if division_id is a name, we'll fetch divisions and map
+
+      const usersRes = await usersQ;
+      if ((usersRes as any).error) throw (usersRes as any).error;
+      let users = (usersRes as any).data || [];
+
+      // If division was provided as text, filter locally by matching division table names
+      if (!isUuid) {
+        const { data: divisions } = await client.from('divisions').select('id,name');
+        const matchNorm = normalizeDivisionName(division_id);
+        const matched = (divisions || []).filter((d: any) => (String(d.name || '').toUpperCase() === matchNorm) || String(d.name || '').toLowerCase().includes(String(division_id).toLowerCase()));
+        const matchedIds = matched.map((d: any) => d.id);
+        if (matchedIds.length > 0) {
+          users = users.filter((u: any) => matchedIds.includes(u.division_id));
+        } else {
+          // fallback: also match users whose division_id column stores text names
+          users = users.filter((u: any) => String(u.division_id || '').toLowerCase().includes(String(division_id).toLowerCase()));
+        }
       }
 
-      const { data, error } = await q2;
-      if (error) throw handleDbError(error);
+      if (!isNaN(Number(yNum))) {
+        users = users.filter((u: any) => Number(u.channel_year) === Number(yNum));
+        return {
+          status: 'success',
+          message: 'Users retrieved successfully for the specified year',
+          data: users,
+          count: users.length,
+        };
+      }
 
+      // No year: aggregate counts per channel_year
       const counts: Record<string, number> = {};
-      for (const row of data || []) {
+      for (const row of users || []) {
         const y = String(row.channel_year || 'unknown');
         counts[y] = (counts[y] || 0) + 1;
       }
       const result = Object.entries(counts).map(([channel_year, count]) => ({ channel_year, count }));
-      const total = (data || []).length;
+      const total = (users || []).length;
       return {
         status: 'success',
         message: 'Division users counts retrieved successfully',
@@ -151,11 +201,26 @@ export class UsersService {
 
       const result = Object.entries(counts).map(([division_id, count]) => ({ division_id, count }));
 
-      return {
-        status: 'success',
-        message: 'Division IDs by year retrieved successfully',
-        data: result,
-      };
+      // Resolve division names when possible
+      try {
+        const { data: divisions } = await this.supabaseService.getClient(true).from('divisions').select('id,name');
+        const byId: Record<string, string> = {};
+        for (const d of (divisions || [])) {
+          if (d && d.id) byId[d.id] = d.name;
+        }
+        const enriched = result.map(r => ({ division_id: r.division_id, division_name: byId[r.division_id] || null, count: r.count }));
+        return {
+          status: 'success',
+          message: 'Division IDs by year retrieved successfully',
+          data: enriched,
+        };
+      } catch (e) {
+        return {
+          status: 'success',
+          message: 'Division IDs by year retrieved successfully',
+          data: result,
+        };
+      }
     } catch (error) {
       throw handleDbError(error);
     }
@@ -163,7 +228,7 @@ export class UsersService {
 
   private async ensureAdmin(userId: string) {
     const { data: admin, error } = await this.supabaseService
-      .getClient()
+      .getClient(true)
       .from('users')
       .select('role')
       .eq('id', userId)
@@ -202,7 +267,45 @@ export class UsersService {
         throw result.error;
       }
 
-      return result.data || [];
+      const users = result.data || [];
+
+      // Resolve division names so frontend can display text instead of UUIDs
+      try {
+        const client = this.supabaseService.getClient(true);
+        const { data: divisions } = await client.from('divisions').select('id,name');
+        const byId: Record<string, string> = {};
+        const byNameNorm: Record<string, string> = {};
+        const normalize = (s: string) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+        if (divisions && Array.isArray(divisions)) {
+          for (const d of divisions) {
+            if (!d) continue;
+            if (d.id) byId[String(d.id)] = d.name;
+            if (d.name) byNameNorm[normalize(d.name)] = d.name;
+          }
+        }
+
+        for (const u of users) {
+          const raw = u?.division_id;
+          if (!raw) {
+            u.division_name = null;
+            u.division_label = null;
+            continue;
+          }
+          const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+          if (uuidRegex.test(String(raw))) {
+            u.division_name = byId[String(raw)] ?? String(raw);
+            u.division_label = u.division_name;
+          } else {
+            const norm = normalize(String(raw));
+            u.division_name = byNameNorm[norm] ?? String(raw);
+            u.division_label = u.division_name;
+          }
+        }
+      } catch (e) {
+        // Non-fatal: if division lookup fails, return users as-is (they'll have division_id)
+      }
+
+      return users;
     } catch (error) {
       console.error('Error fetching users from database:', error);
       if (error.message?.includes('timeout')) {
@@ -217,11 +320,12 @@ export class UsersService {
     }
   }
 
-  async updateUserStatus(userId: string, updateStatusDto: UpdateUserStatusDto, adminId: string) {
+  // Unified method for both status update and accept
+  async upsertUserStatus(userId: string, dto: { status?: UserStatus; role?: UserRole }, adminId: string) {
     await this.ensureAdmin(adminId);
 
     const { data: user, error: userError } = await this.supabaseService
-      .getClient()
+      .getClient(true)
       .from('users')
       .select('id')
       .eq('id', userId)
@@ -231,10 +335,12 @@ export class UsersService {
       throw new NotFoundException('User not found');
     }
 
+    const nextStatus = dto.status ?? UserStatus.APPROVED; // default APPROVED
+
     // Log rejection
-    if (updateStatusDto.status === UserStatus.REJECTED) {
+    if (nextStatus === UserStatus.REJECTED) {
       const { error: rejectionError } = await this.supabaseService
-        .getClient()
+        .getClient(true)
         .from('rejection_logs')
         .insert({
           user_id: userId,
@@ -245,16 +351,16 @@ export class UsersService {
     }
 
     // Validate role: only ADMIN or SISWA allowed
-    const roleToSet = updateStatusDto.role ?? UserRole.SISWA;
+    const roleToSet = dto.role ?? UserRole.SISWA;
     if (![UserRole.ADMIN, UserRole.SISWA].includes(roleToSet)) {
       throw new BadRequestException('Invalid role. Allowed values: ADMIN, SISWA');
     }
 
     const { data: updatedUser, error: updateError } = await this.supabaseService
-      .getClient()
+      .getClient(true)
       .from('users')
       .update({
-        status: updateStatusDto.status,
+        status: nextStatus,
         role: roleToSet,
       })
       .eq('id', userId)
@@ -265,36 +371,14 @@ export class UsersService {
     return updatedUser;
   }
 
-  // Convenience: accept user -> APPROVED and set role (default SISWA)
+  // Backward compatible: keep existing method but delegate
+  async updateUserStatus(userId: string, updateStatusDto: { status: UserStatus; role?: UserRole }, adminId: string) {
+    return this.upsertUserStatus(userId, updateStatusDto, adminId);
+  }
+
+  // Convenience: accept user -> default APPROVED and set role (default SISWA)
   async acceptUser(userId: string, adminId: string, role?: UserRole) {
-    await this.ensureAdmin(adminId);
-
-    const { data: user, error: userError } = await this.supabaseService
-      .getClient()
-      .from('users')
-      .select('id')
-      .eq('id', userId)
-      .single();
-
-    if (userError || !user) {
-      throw new NotFoundException('User not found');
-    }
-
-    const roleToSet = role ?? UserRole.SISWA;
-    if (![UserRole.ADMIN, UserRole.SISWA].includes(roleToSet)) {
-      throw new BadRequestException('Invalid role. Allowed values: ADMIN, SISWA');
-    }
-
-    const { data: updatedUser, error } = await this.supabaseService
-      .getClient()
-      .from('users')
-      .update({ status: UserStatus.APPROVED, role: roleToSet })
-      .eq('id', userId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return updatedUser;
+    return this.upsertUserStatus(userId, { status: UserStatus.APPROVED, role }, adminId);
   }
 
   async deleteRejectedUser(userId: string, adminId: string) {

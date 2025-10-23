@@ -27,7 +27,8 @@ Base path: `/api` (depending on deployment)
 - POST /api/tasks (Admin) - create new task (supports optional file upload)
 - POST /api/tasks/submit or POST /api/tasks/:taskId/submit - submit a task (supports file upload)
 - PUT /api/tasks/:taskId/users/:userId/status (Admin) - update submission status for a user's task
-- GET /api/tasks/:taskId - get task detail
+- PUT /api/tasks/:taskId/task-status (Admin) - update task status (e.g., approve task to prevent further submissions)
+- GET /api/tasks/:taskId - get task detail (includes submissions with user data)
 - GET /api/tasks/year/:year - get tasks by year
 
 ## Posts

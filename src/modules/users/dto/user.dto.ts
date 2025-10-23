@@ -11,6 +11,17 @@ export class UpdateUserStatusDto {
   role: UserRole;
 }
 
+// Unified body for both status update and accept
+export class UpsertUserStatusDto {
+  @IsEnum(UserStatus)
+  @IsOptional()
+  status?: UserStatus; // default to APPROVED if not provided
+
+  @IsEnum(UserRole)
+  @IsOptional()
+  role?: UserRole; // default SISWA if not provided
+}
+
 export class AcceptUserDto {
   @IsEnum(UserRole)
   @IsOptional()

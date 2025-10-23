@@ -68,4 +68,3 @@ See `docs/API.md` and `docs/ARCHITECTURE.md` for a concise reference of key endp
 - Add unit or integration tests for new features when possible
 
 ---
-If you want, I can also add a minimal smoke-test script or a small Postman/Insomnia collection next.Servi

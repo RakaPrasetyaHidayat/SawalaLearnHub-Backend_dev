@@ -22,7 +22,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole, UserStatus } from '../../common/enums';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
-import { UpdateUserStatusDto, SearchUsersDto, AcceptUserDto } from './dto/user.dto';
+import { UpsertUserStatusDto, SearchUsersDto } from './dto/user.dto';
 import { GetUsersByDivisionDto } from './dto/user-division.dto';
 
 @Controller('users')
@@ -42,7 +42,7 @@ export class UsersController {
     return await this.usersService.getUsersByDivision(division_id, year);
   }
 
-  @Get('year/:year')
+  @Get('year/:year(\\d{4})')
   @UseGuards(JwtAuthGuard)
   async getUsersByYear(
     @Param('year') year: string,
@@ -53,7 +53,7 @@ export class UsersController {
   }
 
   // NEW: Get distinct division_ids for a given year with optional counts
-  @Get('year/:year/division_id')
+  @Get('year/:year(\\d{4})/division_id')
   @UseGuards(JwtAuthGuard)
   async getDivisionIdsByYear(
     @Param('year') year: string,
@@ -196,49 +196,6 @@ export class UsersController {
     }
   }
 
-  @Get('test-db')
-  async testDatabaseConnection() {
-    try {
-      const startTime = Date.now();
-
-      const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => reject(new Error('Connection test timeout after 3 seconds')), 3000);
-      });
-
-      const queryPromise = this.usersService['supabaseService']
-        .getClient()
-        .from('users')
-        .select('count')
-        .limit(1);
-
-      const result = await Promise.race([queryPromise, timeoutPromise]) as any;
-      const queryTime = Date.now() - startTime;
-
-      return {
-        status: 'success',
-        message: 'Database connection test successful',
-        data: {
-          connectionTime: `${queryTime}ms`,
-          timestamp: new Date().toISOString(),
-          supabaseConfigured: true,
-          result,
-          note: 'Simple database connectivity test'
-        }
-      };
-    } catch (error: any) {
-      return {
-        status: 'error',
-        message: 'Database connection test failed',
-        error: error.message,
-        data: {
-          timestamp: new Date().toISOString(),
-          suggestion: 'Check SUPABASE_URL in Vercel environment variables',
-          expectedUrl: 'https://zjtpufpqfcemtqpepkhe.supabase.co'
-        }
-      };
-    }
-  }
-
   @Get()
   @UseGuards(JwtAuthGuard)
   async findAll(
@@ -268,18 +225,19 @@ export class UsersController {
     }
   }
 
-  // Support both PATCH and PUT for frontend compatibility
-  @Patch(':id/status')
-  @Put(':id/status')
+  // Unified body and logic for status updates — accessible at PATCH/PUT /api/users/:id
+  @Patch(':id')
+  @Put(':id')
+  @Patch(':id/accept')
   @Roles(UserRole.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
-  async updateUserStatus(
+  async upsertUserStatus(
     @Param('id') id: string,
-    @Body() updateStatusDto: UpdateUserStatusDto,
+    @Body() body: UpsertUserStatusDto,
     @GetUser('id') adminId: string,
   ) {
     try {
-      const user = await this.usersService.updateUserStatus(id, updateStatusDto, adminId);
+      const user = await this.usersService.upsertUserStatus(id, body, adminId);
       return {
         status: 'success',
         message: 'User status updated successfully',
@@ -291,30 +249,6 @@ export class UsersController {
           status: 'error',
           message: error.message,
         },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
-  }
-
-  // New: Accept user (set APPROVED and role default SISWA)
-  @Patch(':id/accept')
-  @Roles(UserRole.ADMIN)
-  @UseGuards(JwtAuthGuard, RolesGuard)
-  async acceptUser(
-    @Param('id') id: string,
-    @Body() body: AcceptUserDto,
-    @GetUser('id') adminId: string,
-  ) {
-    try {
-      const user = await this.usersService.acceptUser(id, adminId, body?.role);
-      return {
-        status: 'success',
-        message: 'User accepted successfully',
-        data: user,
-      };
-    } catch (error: any) {
-      throw new HttpException(
-        { status: 'error', message: error.message },
         HttpStatus.BAD_REQUEST,
       );
     }
@@ -396,7 +330,8 @@ export class UsersController {
   }
 
   // Admin: update any user's profile (full_name, division_id, school_name, channel_year)
-  @Patch(':id')
+  // moved to :id/profile to avoid clash with status endpoint
+  @Patch(':id/profile')
   @Roles(UserRole.ADMIN)
   @UseGuards(JwtAuthGuard, RolesGuard)
   async updateUserProfileByAdmin(

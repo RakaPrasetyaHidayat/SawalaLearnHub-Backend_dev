@@ -10,6 +10,7 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
+  Req,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import * as multer from 'multer';
@@ -99,8 +100,11 @@ export class PostsController {
     @Param('id') postId: string,
     @Body() commentDto: CreatePostCommentDto,
     @GetUser('id') userId: string,
+    @Req() req: any,
   ) {
-    return this.postsService.addComment(postId, userId, commentDto);
+    const auth = req.headers?.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : auth;
+    return this.postsService.addComment(postId, userId, commentDto, token);
   }
 
   @Get(':id/comments')
@@ -111,8 +115,10 @@ export class PostsController {
 
   @Post(':id/likes')
   @UseGuards(JwtAuthGuard)
-  toggleLike(@Param('id') postId: string, @GetUser('id') userId: string) {
-    return this.postsService.toggleLike(postId, userId);
+  toggleLike(@Param('id') postId: string, @GetUser('id') userId: string, @Req() req: any) {
+    const auth = req.headers?.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : auth;
+    return this.postsService.toggleLike(postId, userId, token);
   }
 
   @Get('user/:userId')

@@ -86,6 +86,18 @@ export class TasksController {
             url: '/api/tasks/submissions/:submissionId',
             description: 'Get task submission details by submission ID (includes task description and file URLs)',
             auth: 'Required'
+          },
+          getTaskById: {
+            method: 'GET',
+            url: '/api/tasks/:taskId',
+            description: 'Get task details including submissions with user data',
+            auth: 'Required'
+          },
+          updateTaskOverallStatus: {
+            method: 'PUT',
+            url: '/api/tasks/:taskId/task-status',
+            description: 'Admin: update overall task status (e.g., approve task to prevent further submissions)',
+            auth: 'Required (Admin)'
           }
         }
       }
@@ -192,6 +204,18 @@ export class TasksController {
     return this.tasksService.updateTaskSubmissionStatus(resolvedTaskId, user_id, adminId, updateTaskDto);
   }
 
+  @Put(':taskId/task-status')
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async updateTaskOverallStatus(
+    @Param('taskId') taskId: string,
+    @GetUser('id') adminId: string,
+    @Body() body: { status: SubmissionStatus },
+  ) {
+    const resolvedTaskId = await this.tasksService.resolveTaskId(taskId);
+    return this.tasksService.updateTaskOverallStatus(resolvedTaskId, body.status, adminId);
+  }
+
   @Get('year/:year')
   @UseGuards(JwtAuthGuard)
   getTasksByYear(@Param('year') year: string) {
@@ -230,12 +254,7 @@ export class TasksController {
     return this.tasksService.getAvailableTasks();
   }
 
-  // Debug endpoint to list all tasks with their IDs
-  @Get('debug/list')
-  @UseGuards(JwtAuthGuard)
-  async debugListTasks() {
-    return this.tasksService.debugListTasks();
-  }
+  // (debug endpoint removed to match production API surface)
 
   // Get task submission by submission ID
   @Get('submissions/:submissionId')

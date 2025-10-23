@@ -6,7 +6,7 @@ import { CreateCommentDto } from './dto/comment.dto';
 export class CommentsService {
   constructor(private readonly supabaseService: SupabaseService) {}
 
-  async createComment(postId: string, userId: string, createCommentDto: CreateCommentDto) {
+  async createComment(postId: string, userId: string, createCommentDto: CreateCommentDto, accessToken?: string) {
     // Check if post exists
     const { data: post } = await this.supabaseService.getClient()
       .from('posts')
@@ -18,21 +18,32 @@ export class CommentsService {
       throw new NotFoundException('Post not found');
     }
 
-    const { data: comment, error } = await this.supabaseService.getClient()
-      .from('comments')
-      .insert({
-        post_id: postId,
-        user_id: userId,
-        content: createCommentDto.content,
-      })
-      .select(`
-        *,
-        user:users(id, full_name, email)
-      `)
-      .single();
+    try {
+  // Use admin client for server-side write (bypass RLS). Nest guards already ensure caller is authenticated.
+  const client = this.supabaseService.getClient(true);
+      const { data: comment, error } = await client
+        .from('comments')
+        .insert({
+          post_id: postId,
+          user_id: userId,
+          content: createCommentDto.content,
+        })
+        .select(`
+          *,
+          user:users(id, full_name, email, avatar_url)
+        `)
+        .single();
 
-    if (error) throw error;
-    return comment;
+      if (error) {
+        console.error('[CommentsService.createComment] DB error:', error);
+        throw new Error(error.message || 'Failed to create comment');
+      }
+      return comment;
+    } catch (err: any) {
+      console.error('[CommentsService.createComment] Error:', err && err.message ? err.message : err);
+      // Surface as BadRequest so client sees message
+      throw new (require('@nestjs/common').BadRequestException)(err.message || 'Failed to create comment');
+    }
   }
 
   async getPostComments(postId: string) {
@@ -40,7 +51,7 @@ export class CommentsService {
       .from('comments')
       .select(`
         *,
-        user:users(id, full_name, email)
+        user:users(id, full_name, email, avatar_url)
       `)
       .eq('post_id', postId)
       .order('created_at', { ascending: true });
@@ -70,7 +81,7 @@ export class CommentsService {
       })
       .select(`
         *,
-        user:users(id, full_name, email)
+        user:users(id, full_name, email, avatar_url)
       `)
       .single();
 
@@ -83,7 +94,7 @@ export class CommentsService {
       .from('task_comments')
       .select(`
         *,
-        user:users(id, full_name, email)
+        user:users(id, full_name, email, avatar_url)
       `)
       .eq('task_id', taskId)
       .order('created_at', { ascending: true });

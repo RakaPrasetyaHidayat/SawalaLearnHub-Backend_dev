@@ -102,7 +102,7 @@ export class PostsService {
     // Fetch author summary
     const { data: author } = await client
       .from('users')
-      .select('id, full_name, email')
+      .select('id, full_name, email, avatar_url')
       .eq('id', post.user_id)
       .maybeSingle();
 
@@ -161,11 +161,14 @@ export class PostsService {
     postId: string,
     userId: string,
     commentDto: CreatePostCommentDto,
+    accessToken?: string,
   ): Promise<PostComment> {
     await this.findOne(postId);
 
-    const { data: comment, error } = await this.supabaseService
-      .getClient()
+  // Use admin client for server-side insert (bypass RLS). Auth is enforced by Nest guards.
+  const client = this.supabaseService.getClient(true);
+
+    const { data: comment, error } = await client
       .from('comments')
       .insert({
         post_id: postId,
@@ -175,7 +178,10 @@ export class PostsService {
       .select()
       .maybeSingle();
 
-    if (error) throw error;
+    if (error) {
+      console.error('[PostsService.addComment] DB error:', error);
+      throw error;
+    }
     return comment as PostComment;
   }
 
@@ -186,7 +192,7 @@ export class PostsService {
       .select(
         `
         *,
-        users!inner(id, full_name, email)
+        users!inner(id, full_name, email, avatar_url)
         `,
       )
       .eq('post_id', postId)
@@ -199,26 +205,49 @@ export class PostsService {
   async toggleLike(
     postId: string,
     userId: string,
-  ): Promise<{ liked: boolean }> {
+    accessToken?: string,
+  ): Promise<{ liked: boolean; like?: any }> {
     await this.findOne(postId);
 
-    const { data: existingLike } = await this.supabaseService
-      .getClient()
-      .from('post_likes')
-      .select()
-      .eq('post_id', postId)
-      .eq('user_id', userId)
-      .maybeSingle();
+  // Use admin client for server-side write operations to bypass RLS (Nest guards already enforce auth)
+  const client = this.supabaseService.getClient(true);
 
-    if (existingLike) {
-      await this.supabaseService.delete('post_likes', existingLike.id);
-      return { liked: false };
-    } else {
-      await this.supabaseService.create('post_likes', {
-        post_id: postId,
-        user_id: userId,
-      });
-      return { liked: true };
+    try {
+      const { data: existingLike, error: selectErr } = await client
+        .from('post_likes')
+        .select('*')
+        .match({ post_id: postId, user_id: userId })
+        .maybeSingle();
+
+      if (selectErr) {
+        console.error('[PostsService.toggleLike] select error:', selectErr);
+        throw new Error(selectErr.message || 'Failed to query existing like');
+      }
+
+      if (existingLike) {
+        const { error: delErr } = await client.from('post_likes').delete().match({ id: existingLike.id });
+        if (delErr) {
+          console.error('[PostsService.toggleLike] delete error:', delErr);
+          throw new Error(delErr.message || 'Failed to delete like');
+        }
+        return { liked: false };
+      }
+
+      const { data: newLike, error } = await client
+        .from('post_likes')
+        .insert({ post_id: postId, user_id: userId })
+        .select('*')
+        .single();
+
+      if (error) {
+        console.error('[PostsService.toggleLike] insert error:', error);
+        throw new Error(error.message || 'Failed to create like');
+      }
+      return { liked: true, like: newLike };
+    } catch (err: any) {
+      console.error('[PostsService.toggleLike] Error:', err && err.message ? err.message : err);
+      // Map to appropriate HTTP error for the controller to convert
+      throw new (require('@nestjs/common').InternalServerErrorException)(err.message || 'Failed to toggle like');
     }
   }
 

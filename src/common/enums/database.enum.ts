@@ -15,6 +15,7 @@ export enum TaskStatus {
   OPEN = 'OPEN',
   IN_PROGRESS = 'IN_PROGRESS',
   ON_PROGRES = 'ON-PROGRESS',
+  ON_PROGRESS = 'ON-PROGRESS', // alias for consistency
   COMPLETED = 'COMPLETED',
   ACTIVE = 'ACTIVE',
   ARCHIVED = 'ARCHIVED'
@@ -25,7 +26,8 @@ export enum SubmissionStatus {
   OVERDUE = 'OVERDUE',
   REVISION = 'REVISION',
   APPROVED = 'APPROVED',
-  ON_PROGRES = 'ON-PROGRESS'
+  ON_PROGRES = 'ON-PROGRESS',
+  ON_PROGRESS = 'ON-PROGRESS' // alias for consistency
 }
 
 export enum Division {

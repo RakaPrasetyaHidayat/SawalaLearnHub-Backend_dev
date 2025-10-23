@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, Post, UseGuards, Req } from '@nestjs/common';
 import { CommentsService } from './comments.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
@@ -37,12 +37,15 @@ export class CommentsController {
     @Param('postId') postId: string,
     @GetUser('id') userId: string,
     @Body() createCommentDto: CreateCommentDto,
+    @Req() req: any,
   ) {
-    const comment = await this.commentsService.createComment(postId, userId, createCommentDto);
+    const auth = req.headers?.authorization || '';
+    const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : auth;
+    const comment = await this.commentsService.createComment(postId, userId, createCommentDto, token);
     return {
       status: 'success',
       message: 'Comment created successfully',
-      data: comment
+      data: comment,
     };
   }
 

@@ -124,14 +124,59 @@ export class AuthService {
         role: UserRole.SISWA,
         status: UserStatus.PENDING,
         channel_year: registerDto.channel_year || currentYear,
-        division_id: registerDto.division_id || null,
+        division_id: null,
         school_name: registerDto.school_name || null,
       };
+
+      // Accept division input from frontend as friendly name (e.g. 'Backend', 'Frontend', 'UI/UX', 'DevOps')
+      // and resolve it to the division UUID stored in the divisions table. If the client already
+      // provided a UUID, use it directly.
+      if (registerDto.division_id) {
+        const maybe = String(registerDto.division_id).trim();
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidRegex.test(maybe)) {
+          userData.division_id = maybe;
+        } else {
+          // Try to resolve by name. Prefer exact case-insensitive match, then normalized match, then ilike fuzzy.
+          const client = this.adminClient;
+          const { data: allDivs, error: divErr } = await client.from('divisions').select('id,name');
+          if (divErr) throw new InternalServerErrorException('Failed to load divisions list');
+
+          const normalize = (s: string) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+          const exact = (allDivs || []).find((d: any) => String(d.name).toLowerCase() === maybe.toLowerCase());
+          if (exact) {
+            userData.division_id = exact.id;
+          } else {
+            const norm = normalize(maybe);
+            const normalizedMatch = (allDivs || []).find((d: any) => normalize(d.name) === norm);
+            if (normalizedMatch) {
+              userData.division_id = normalizedMatch.id;
+            } else {
+              // fallback: DB fuzzy search
+              const { data: fuzzy, error: fuzzyErr } = await client
+                .from('divisions')
+                .select('id,name')
+                .ilike('name', `%${maybe}%`);
+              if (fuzzyErr) throw new InternalServerErrorException('Failed to search divisions');
+              if (!fuzzy || fuzzy.length === 0) {
+                const available = (allDivs || []).map((d: any) => d.name).join(', ');
+                throw new BadRequestException(`Division not found; available: ${available}`);
+              }
+              if (fuzzy.length > 1) {
+                // ambiguous
+                const names = fuzzy.map((d: any) => d.name).join(', ');
+                throw new BadRequestException(`Multiple divisions matched: ${names}. Please provide exact division name or UUID.`);
+              }
+              userData.division_id = fuzzy[0].id;
+            }
+          }
+        }
+      }
 
       const { data: user, error: insertError } = await this.adminClient
         .from('users')
         .insert([userData])
-        .select('id, email, full_name, role, status, channel_year, school_name, division_id')
+        .select('id, email, full_name, role, status, channel_year, school_name, division_id, avatar_url')
         .single();
 
       if (insertError) throw new InternalServerErrorException(insertError.message);
@@ -209,7 +254,7 @@ export class AuthService {
       // Fetch core user fields from the users table (keeps internal fields like password isolated)
       const { data: user, error } = await this.adminClient
         .from('users')
-        .select('id, email, full_name, role, status, channel_year, school_name, division_id')
+        .select('id, email, full_name, role, status, channel_year, school_name, division_id, avatar_url')
         .eq('id', userId)
         .maybeSingle();
 
