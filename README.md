@@ -1,4 +1,4 @@
-# Sawala LearnHub — Backend
+# Sawala LearnHub  Backend
 
 This repository contains the backend for the Sawala LearnHub project built with NestJS, TypeScript and Supabase.
 
