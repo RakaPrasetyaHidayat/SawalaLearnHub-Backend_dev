@@ -1,70 +1,132 @@
-# Sawala LearnHub  Backend
+# 🚀 Sawala LearnHub — Backend Service
 
-This repository contains the backend for the Sawala LearnHub project built with NestJS, TypeScript and Supabase.
+Built with **NestJS**, **TypeScript**, and **Supabase** to power the Sawala LearnHub ecosystem.
 
-This README contains quick setup instructions, recommended environment variables, and common scripts so other developers (or reviewers) can run and inspect the project quickly.
+---
 
-## Quick summary
-- Framework: NestJS (TypeScript)
-- Database & Auth: Supabase (Postgres + Auth)
-- Storage: Supabase Storage buckets
-- Deployment: Vercel (serverless/edge as configured)
+<p align="center">
+<img src="https://img.shields.io/badge/NestJS-Backend-red?style=flat-square&logo=nestjs" />
+<img src="https://img.shields.io/badge/TypeScript-5.x-blue?style=flat-square&logo=typescript" />
+<img src="https://img.shields.io/badge/Supabase-Postgres-green?style=flat-square&logo=supabase" />
+<img src="https://img.shields.io/badge/Deployment-Vercel-black?style=flat-square&logo=vercel" />
+</p>
 
-## Requirements
-- Node.js 18+ (recommended)
-- npm
-- Supabase project (URL + service role key)
+## 📌 Ringkasan Proyek
 
-## Environment variables (required)
-- SUPABASE_URL - your Supabase project URL
-- SUPABASE_SERVICE_ROLE_KEY - Supabase service role key (server-side, keep secret)
-- JWT_SECRET - secret used to sign JWT for auth (if used by your auth flow)
-- NODE_ENV - development | production
+Sawala LearnHub Backend adalah layanan server yang menyediakan API untuk aplikasi Sawala LearnHub. Dibangun menggunakan **NestJS** untuk skalabilitas, modularitas, dan maintainability, serta terintegrasi dengan **Supabase** sebagai database, autentikasi, dan file storage.
 
-Create a `.env` file (or configure these in your deployment environment / Vercel) with the values above.
+### ✨ Teknologi Utama
 
-## Install & run locally
-1. Install dependencies
+* **NestJS (TypeScript)** — Framework backend modern berbasis arsitektur modular.
+* **Supabase** — Database Postgres + Auth + Storage.
+* **Vercel Serverless** — Untuk deployment cepat dan efisien.
 
-```powershell
+---
+
+## ⚙️ Requirements
+
+Pastikan Anda telah menginstal:
+
+* Node.js **18+**
+* npm (atau pnpm/yarn)
+* Akun dan project **Supabase**
+* Akses ke:
+
+  * `SUPABASE_URL`
+  * `SUPABASE_SERVICE_ROLE_KEY`
+
+---
+
+## 🔐 Environment Variables
+
+Buat file `.env` di root project:
+
+```
+SUPABASE_URL=<your-supabase-url>
+SUPABASE_SERVICE_ROLE_KEY=<your-service-role-key>
+JWT_SECRET=<your-jwt-secret>
+NODE_ENV=development
+```
+
+> ⚠️ Jangan pernah commit file `.env` ke repository publik.
+
+---
+
+## 🛠️ Cara Menjalankan Project
+
+### 1. Install Dependencies
+
+```bash
 npm install
 ```
 
-2. Run in development
+### 2. Jalan dalam Mode Development
 
-```powershell
+```bash
 npm run start:dev
 ```
 
-3. Build for production
+### 3. Build untuk Production
 
-```powershell
+```bash
 npm run build
 ```
 
-4. Run production build locally
+### 4. Jalankan Build Production
 
-```powershell
+```bash
 npm run start:prod
 ```
 
-## Useful scripts
-- `npm run format` — format project using Prettier
-- `npm run lint` — lint and auto-fix using ESLint
-- `npm run build` — compile TypeScript and produce `dist/`
-- `npm run start:dev` — start Nest in watch mode
+---
 
-## Project structure (high level)
-- `src/modules` - feature modules (users, tasks, posts,...)
-- `src/infra` - external/integration code (Supabase client)
-- `src/common` - shared utilities, enums and types
-- `src/main.ts` - nest bootstrap
+## 📂 Struktur Project (High-level)
 
-## API docs & architecture
-See `docs/API.md` and `docs/ARCHITECTURE.md` for a concise reference of key endpoints and the high-level architecture.
-
-## Contributing / Code style
-- Please run `npm run format` before creating a PR
-- Add unit or integration tests for new features when possible
+```
+src/
+│── main.ts          # Entry point NestJS
+│── app.module.ts    # Root module
+│
+├── modules/         # Module fitur (users, posts, etc)
+├── common/          # Utility, constants & decorators
+├── infra/           # Integrasi eksternal (Supabase client)
+└── config/          # Config environment & providers
+```
 
 ---
+
+## 🧪 Script Penting
+
+* `npm run start:dev` — Jalankan server dengan watch mode
+* `npm run format` — Format kode dengan Prettier
+* `npm run lint` — Linting & auto fix
+* `npm run build` — Compile TypeScript ke folder `dist/`
+
+---
+
+## 📘 Dokumentasi Tambahan
+
+Dokumentasi lengkap tersedia pada folder `docs/`:
+
+* **API Reference** → `docs/API.md`
+* **Architecture Overview** → `docs/ARCHITECTURE.md`
+
+---
+
+## 🤝 Kontribusi & Standar Kode
+
+Kami terbuka untuk kontribusi!
+
+* Gunakan `npm run format` sebelum pull request
+* Tambahkan unit test untuk fitur baru jika memungkinkan
+* Ikuti style guide dan struktur module NestJS
+
+---
+
+## 💡 Catatan Penting
+
+Backend ini **tidak menggunakan Express secara langsung**, tetapi menggunakan **NestJS** yang secara internal dapat memakai Express atau Fastify sebagai HTTP adapter. Arsitektur project mengikuti standar **NestJS Modular Architecture**.
+
+---
+
+Terima kasih telah menggunakan Sawala LearnHub Backend! 🙌
