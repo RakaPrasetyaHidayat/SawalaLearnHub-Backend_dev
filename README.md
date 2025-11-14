@@ -1,4 +1,4 @@
-# 🚀 Sawala LearnHub — Backend Service
+# 🚀 Sawala LearnHub — Backend Development
 
 Built with **NestJS**, **TypeScript**, and **Supabase** to power the Sawala LearnHub ecosystem.
 
