@@ -13,7 +13,8 @@ Built with **NestJS**, **TypeScript**, and **Supabase** to power the Sawala Lear
 
 ## 📌 Ringkasan Proyek
 
-Sawala LearnHub Backend adalah layanan server yang menyediakan API untuk aplikasi Sawala LearnHub. Dibangun menggunakan **NestJS** untuk skalabilitas, modularitas, dan maintainability, serta terintegrasi dengan **Supabase** sebagai database, autentikasi, dan file storage.
+Sawala LearnHub adalah aplikasi berbasis web yang digunakan Sawala Tech untuk mendigitalisasi pengumupulan tugas siswa PKL di setiap tahunya. Selain mendigitalisasi
+Sawala LearnHub juga menyediakan resource belajar untuk setiap divisi yang di isi oleh siswa SMK yang melaksanakan PKL
 
 ### ✨ Teknologi Utama
 
