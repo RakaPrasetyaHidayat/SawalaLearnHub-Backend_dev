@@ -6,4 +6,5 @@ dist/
 migrated-js/
 readme.md
 test-create-task.md
+.gitignore
 test-create-resource.md
