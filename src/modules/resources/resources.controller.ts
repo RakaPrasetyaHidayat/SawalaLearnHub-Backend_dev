@@ -1,9 +1,11 @@
 import { Body, Controller, Get, Param, Post, UseGuards, Query, Headers } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { ResourcesService } from './resources.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { GetUser } from '../auth/decorators/get-user.decorator';
 import { CreateResourceDto, GetResourcesQueryDto } from './dto/resource.dto';
 
+@ApiTags('Resources')
 @Controller('resources')
 export class ResourcesController {
   constructor(private readonly resourcesService: ResourcesService) {}

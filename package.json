@@ -28,8 +28,10 @@
     "clean": "rimraf dist",
     "clean:install": "rimraf dist node_modules package-lock.json && npm install",
     "dev:verbose": "cross-env NODE_ENV=development nest start --watch",
-    "migrate-js": "node scripts/migrate-js-artifacts.js"
+    "migrate-js": "node scripts/migrate-js-artifacts.js",
+    "prune:prod": "powershell -ExecutionPolicy Bypass -File scripts/clean-for-production.ps1"
   },
+ 
   "_moduleAliases": {
     "@": "src"
   },

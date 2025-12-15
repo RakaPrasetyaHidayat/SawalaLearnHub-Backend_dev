@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, Put, Delete, UseGuards, UploadedFile, UseInterceptors, Headers, Query } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import { TasksService } from './tasks.service';
@@ -11,6 +12,7 @@ import { CreateTaskDto, SubmitTaskDto, UpdateTaskDto } from './dto/task.dto';
 import { GetTasksQueryDto, BatchUpdateDto, BatchPreviewDto } from './dto/task.dto';
 import { UUID } from 'crypto';
 
+@ApiTags('Tasks')
 @Controller('tasks')
 export class TasksController {
   constructor(private readonly tasksService: TasksService) {}

@@ -1,4 +1,5 @@
 import { Controller, Get, Post, Patch, Delete, Param, Body, UseGuards } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { DivisionService } from './division.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
@@ -6,6 +7,7 @@ import { Roles } from '../auth/decorators/roles.decorator';
 import { UserRole } from '../../common/enums/database.enum';
 import { CreateDivisionDto, UpdateDivisionDto } from './dto/division.dto';
 
+@ApiTags('Divisions')
 @Controller('divisions')
 @UseGuards(JwtAuthGuard)
 export class DivisionController {
