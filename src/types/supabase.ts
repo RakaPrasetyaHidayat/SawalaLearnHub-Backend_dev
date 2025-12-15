@@ -26,7 +26,6 @@ export type Database = {
           updated_at: string;
         };
       };
-      // Add other tables as needed
     };
     Enums: {
       user_role: 'ADMIN' | 'MENTOR' | 'SISWA';

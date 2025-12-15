@@ -13,6 +13,7 @@ import {
   HttpStatus,
   ParseUUIDPipe,
 } from '@nestjs/common';
+import { ApiTags } from '@nestjs/swagger';
 import { FileInterceptor, FileFieldsInterceptor } from '@nestjs/platform-express';
 import { UseInterceptors, UploadedFile, UploadedFiles } from '@nestjs/common';
 import { memoryStorage } from 'multer';
@@ -25,6 +26,7 @@ import { GetUser } from '../auth/decorators/get-user.decorator';
 import { UpsertUserStatusDto, SearchUsersDto } from './dto/user.dto';
 import { GetUsersByDivisionDto } from './dto/user-division.dto';
 
+@ApiTags('Users')
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}

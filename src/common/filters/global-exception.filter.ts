@@ -49,6 +49,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         details: (exception as any).details,
         hint: (exception as any).hint
       };
+    } else if (exception instanceof TypeError && String(exception.message).toLowerCase().includes('fetch')) {
+      // Network-level fetch errors (e.g. DNS, connection refused, missing fetch polyfill)
+      status = HttpStatus.BAD_GATEWAY;
+      message = 'Upstream network error: failed to reach external service';
+      error = process.env.NODE_ENV === 'development' ? { original: exception.message } : undefined;
+    } else if ((exception as any)?.code && /(ENOTFOUND|ECONNREFUSED|ECONNRESET|EAI_AGAIN)/.test(String((exception as any).code))) {
+      status = HttpStatus.BAD_GATEWAY;
+      message = 'Upstream network error';
+      error = process.env.NODE_ENV === 'development' ? { code: (exception as any).code, details: (exception as any).details } : undefined;
     } else if (exception instanceof Error) {
       message = exception.message;
       error = process.env.NODE_ENV === 'development' ? {

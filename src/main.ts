@@ -1,4 +1,30 @@
 import 'module-alias/register';
+// Ensure global fetch is available in Node environments (older Node or serverless runtimes)
+// Prefer built-in fetch, otherwise attempt to use undici or node-fetch as fallback.
+if (typeof globalThis.fetch !== 'function') {
+  try {
+    // undici is preferred in Node 16/18+ environments
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const undici = require('undici');
+    if (undici && typeof undici.fetch === 'function') {
+      // assign undici.fetch to global
+      // @ts-ignore
+      globalThis.fetch = undici.fetch;
+    }
+  } catch (e) {
+    try {
+      // fallback to node-fetch if undici not available
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const nodeFetch = require('node-fetch');
+      // node-fetch v3 exports ESM; requiring may return a default property
+      // @ts-ignore
+      globalThis.fetch = nodeFetch.default || nodeFetch;
+    } catch (err) {
+      // If no polyfill available, continue — GlobalExceptionFilter will map network errors.
+      console.warn('No fetch polyfill available; network requests may fail in this runtime');
+    }
+  }
+}
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe, RequestMethod } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
