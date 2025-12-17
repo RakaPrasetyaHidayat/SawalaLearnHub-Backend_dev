@@ -1,40 +1,49 @@
-import { Body, Controller, Get, Param, Post, UseGuards, Query, Headers } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { ResourcesService } from './resources.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { GetUser } from '../auth/decorators/get-user.decorator';
-import { CreateResourceDto, GetResourcesQueryDto } from './dto/resource.dto';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  Query,
+  Headers,
+} from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
+import { ResourcesService } from "./resources.service";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { GetUser } from "../auth/decorators/get-user.decorator";
+import { CreateResourceDto, GetResourcesQueryDto } from "./dto/resource.dto";
 
-@ApiTags('Resources')
-@Controller('resources')
+@ApiTags("Resources")
+@Controller("resources")
 export class ResourcesController {
   constructor(private readonly resourcesService: ResourcesService) {}
 
-  @Get('info')
+  @Get("info")
   async getResourcesInfo() {
     return {
-      status: 'success',
-      message: 'Resources API endpoints information',
+      status: "success",
+      message: "Resources API endpoints information",
       data: {
-        description: 'Endpoints for managing learning resources',
+        description: "Endpoints for managing learning resources",
         endpoints: {
           getResources: {
-            method: 'GET',
-            url: '/api/resources',
-            description: 'Get list of resources'
+            method: "GET",
+            url: "/api/resources",
+            description: "Get list of resources",
           },
           createResource: {
-            method: 'POST',
-            url: '/api/resources',
-            description: 'Create a new resource'
+            method: "POST",
+            url: "/api/resources",
+            description: "Create a new resource",
           },
           getByYear: {
-            method: 'GET',
-            url: '/api/resources/year/:year',
-            description: 'Get resources by year'
-          }
-        }
-      }
+            method: "GET",
+            url: "/api/resources/year/:year",
+            description: "Get resources by year",
+          },
+        },
+      },
     };
   }
 
@@ -42,16 +51,22 @@ export class ResourcesController {
   @UseGuards(JwtAuthGuard)
   async createResource(
     @Body() createResourceDto: CreateResourceDto,
-    @GetUser('id') userId: string,
-    @Headers('authorization') authorization?: string,
+    @GetUser("id") userId: string,
+    @Headers("authorization") authorization?: string,
   ) {
     // accept Authorization: Bearer <access_token> from frontend and forward to service
-    const token = authorization?.startsWith('Bearer ') ? authorization.split(' ')[1] : authorization;
-    const resource = await this.resourcesService.createResource(createResourceDto, userId, token);
+    const token = authorization?.startsWith("Bearer ")
+      ? authorization.split(" ")[1]
+      : authorization;
+    const resource = await this.resourcesService.createResource(
+      createResourceDto,
+      userId,
+      token,
+    );
     return {
-      status: 'success',
-      message: 'Resource created successfully',
-      data: resource
+      status: "success",
+      message: "Resource created successfully",
+      data: resource,
     };
   }
 
@@ -60,33 +75,35 @@ export class ResourcesController {
   @UseGuards(JwtAuthGuard)
   async getAllResources(
     @Query() query: GetResourcesQueryDto,
-    @Headers('authorization') authorization?: string,
+    @Headers("authorization") authorization?: string,
   ) {
-    const token = authorization?.startsWith('Bearer ') ? authorization.split(' ')[1] : authorization;
+    const token = authorization?.startsWith("Bearer ")
+      ? authorization.split(" ")[1]
+      : authorization;
     const resources = await this.resourcesService.getAllResources(query, token);
     return {
-      status: 'success',
-      message: 'Resources retrieved successfully',
-      data: resources
+      status: "success",
+      message: "Resources retrieved successfully",
+      data: resources,
     };
   }
 
-  @Get('year/:year')
+  @Get("year/:year")
   @UseGuards(JwtAuthGuard)
-  getResourcesByYear(@Param('year') year: string) {
+  getResourcesByYear(@Param("year") year: string) {
     return this.resourcesService.getResourcesByYear(year);
   }
 
-  @Get('users/:userId')
+  @Get("users/:userId")
   @UseGuards(JwtAuthGuard)
-  getUserResources(@Param('userId') userId: string) {
+  getUserResources(@Param("userId") userId: string) {
     return this.resourcesService.getUserResources(userId);
   }
 
   // Get resource by ID
-  @Get(':id')
+  @Get(":id")
   @UseGuards(JwtAuthGuard)
-  getResourceById(@Param('id') id: string) {
+  getResourceById(@Param("id") id: string) {
     return this.resourcesService.getResourceById(id);
   }
 }

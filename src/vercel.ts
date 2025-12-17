@@ -1,5 +1,5 @@
-import { VercelRequest, VercelResponse } from '@vercel/node';
-import { bootstrap } from './main';
+import { VercelRequest, VercelResponse } from "@vercel/node";
+import { bootstrap } from "./main";
 
 let server: any;
 
@@ -11,7 +11,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
     return server(req, res);
   } catch (error: any) {
-    console.error('Vercel handler error', error);
-    res.status(500).json({ error: error?.message || 'Internal Server Error' });
+    console.error("Vercel handler error", error);
+    res.status(500).json({ error: error?.message || "Internal Server Error" });
   }
 }

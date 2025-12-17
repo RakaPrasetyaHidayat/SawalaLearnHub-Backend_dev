@@ -1,12 +1,12 @@
-import { Module } from '@nestjs/common';
-import { DivisionController } from './division.controller';
-import { DivisionService } from './division.service';
-import { SupabaseModule } from '../../infra/supabase/supabase.module';
+import { Module } from "@nestjs/common";
+import { DivisionController } from "./division.controller";
+import { DivisionService } from "./division.service";
+import { SupabaseModule } from "../../infra/supabase/supabase.module";
 
 @Module({
   imports: [SupabaseModule],
   controllers: [DivisionController],
   providers: [DivisionService],
-  exports: [DivisionService]
+  exports: [DivisionService],
 })
 export class DivisionModule {}

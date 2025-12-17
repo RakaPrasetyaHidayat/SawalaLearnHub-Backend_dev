@@ -1,4 +1,4 @@
-import { UserRole, UserStatus, SubmissionStatus } from '../enums/database.enum';
+import { UserRole, UserStatus, SubmissionStatus } from "../enums/database.enum";
 
 export interface DatabaseFunctions {
   // User Management

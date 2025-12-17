@@ -1,16 +1,20 @@
-import { 
-  Injectable, 
-  UnauthorizedException, 
-  BadRequestException, 
+import {
+  Injectable,
+  UnauthorizedException,
+  BadRequestException,
   InternalServerErrorException,
   NotFoundException,
-  HttpException
-} from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import * as bcrypt from 'bcryptjs';
-import { SupabaseService } from '../../infra/supabase/supabase.service';
-import { RegisterDto, LoginDto } from './dto/auth.dto';
-import { UserRole, UserStatus, Division } from '../../common/enums/database.enum';
+  HttpException,
+} from "@nestjs/common";
+import { JwtService } from "@nestjs/jwt";
+import * as bcrypt from "bcryptjs";
+import { SupabaseService } from "../../infra/supabase/supabase.service";
+import { RegisterDto, LoginDto } from "./dto/auth.dto";
+import {
+  UserRole,
+  UserStatus,
+  Division,
+} from "../../common/enums/database.enum";
 
 export interface AuthResponse<T> {
   status: string;
@@ -51,35 +55,39 @@ export class AuthService {
    */
   private get adminClient() {
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      console.error('❌ Missing SUPABASE_SERVICE_ROLE_KEY in env');
+      console.error("❌ Missing SUPABASE_SERVICE_ROLE_KEY in env");
     }
     return this.supabaseService.getClient(true);
   }
 
-  private async handleDatabaseOperation<T>(operation: () => Promise<T>): Promise<T> {
+  private async handleDatabaseOperation<T>(
+    operation: () => Promise<T>,
+  ): Promise<T> {
     try {
       return await operation();
     } catch (err: any) {
       // Avoid leaking internals, but keep meaningful mapping
-      const message = typeof err?.message === 'string' ? err.message : '';
-      console.error('Database operation error:', {
+      const message = typeof err?.message === "string" ? err.message : "";
+      console.error("Database operation error:", {
         message,
         code: err?.code,
         details: err?.details,
         hint: err?.hint,
       });
 
-      if (message.includes('API key')) {
-        throw new InternalServerErrorException('Database configuration error: Invalid API key');
+      if (message.includes("API key")) {
+        throw new InternalServerErrorException(
+          "Database configuration error: Invalid API key",
+        );
       }
-      if (message.includes('JWT')) {
-        throw new UnauthorizedException('Invalid or expired token');
+      if (message.includes("JWT")) {
+        throw new UnauthorizedException("Invalid or expired token");
       }
-      if (message.includes('duplicate key') || err?.code === '23505') {
-        throw new BadRequestException('Resource already exists');
+      if (message.includes("duplicate key") || err?.code === "23505") {
+        throw new BadRequestException("Resource already exists");
       }
-      if (message.includes('not found')) {
-        throw new NotFoundException('Resource not found');
+      if (message.includes("not found")) {
+        throw new NotFoundException("Resource not found");
       }
 
       if (err instanceof HttpException) {
@@ -88,7 +96,9 @@ export class AuthService {
       }
 
       // Generic error handling
-      throw new InternalServerErrorException(message || 'Database operation failed');
+      throw new InternalServerErrorException(
+        message || "Database operation failed",
+      );
     }
   }
 
@@ -97,20 +107,21 @@ export class AuthService {
       const email = registerDto.email.toLowerCase().trim();
 
       const { data: existingUser, error: searchError } = await this.adminClient
-        .from('users')
-        .select('id, email, status')
-        .eq('email', email)
+        .from("users")
+        .select("id, email, status")
+        .eq("email", email)
         .maybeSingle();
 
-      if (searchError) throw new InternalServerErrorException(searchError.message);
+      if (searchError)
+        throw new InternalServerErrorException(searchError.message);
 
       if (existingUser) {
         throw new BadRequestException({
-          message: 'User already exists',
+          message: "User already exists",
           details:
             existingUser.status === UserStatus.PENDING
-              ? 'Your registration is pending approval'
-              : 'An account with this email already exists',
+              ? "Your registration is pending approval"
+              : "An account with this email already exists",
         });
       }
 
@@ -133,39 +144,61 @@ export class AuthService {
       // provided a UUID, use it directly.
       if (registerDto.division_id) {
         const maybe = String(registerDto.division_id).trim();
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        const uuidRegex =
+          /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
         if (uuidRegex.test(maybe)) {
           userData.division_id = maybe;
         } else {
           // Try to resolve by name. Prefer exact case-insensitive match, then normalized match, then ilike fuzzy.
           const client = this.adminClient;
-          const { data: allDivs, error: divErr } = await client.from('divisions').select('id,name');
-          if (divErr) throw new InternalServerErrorException('Failed to load divisions list');
+          const { data: allDivs, error: divErr } = await client
+            .from("divisions")
+            .select("id,name");
+          if (divErr)
+            throw new InternalServerErrorException(
+              "Failed to load divisions list",
+            );
 
-          const normalize = (s: string) => String(s || '').toLowerCase().replace(/[^a-z0-9]/g, '');
-          const exact = (allDivs || []).find((d: any) => String(d.name).toLowerCase() === maybe.toLowerCase());
+          const normalize = (s: string) =>
+            String(s || "")
+              .toLowerCase()
+              .replace(/[^a-z0-9]/g, "");
+          const exact = (allDivs || []).find(
+            (d: any) => String(d.name).toLowerCase() === maybe.toLowerCase(),
+          );
           if (exact) {
             userData.division_id = exact.id;
           } else {
             const norm = normalize(maybe);
-            const normalizedMatch = (allDivs || []).find((d: any) => normalize(d.name) === norm);
+            const normalizedMatch = (allDivs || []).find(
+              (d: any) => normalize(d.name) === norm,
+            );
             if (normalizedMatch) {
               userData.division_id = normalizedMatch.id;
             } else {
               // fallback: DB fuzzy search
               const { data: fuzzy, error: fuzzyErr } = await client
-                .from('divisions')
-                .select('id,name')
-                .ilike('name', `%${maybe}%`);
-              if (fuzzyErr) throw new InternalServerErrorException('Failed to search divisions');
+                .from("divisions")
+                .select("id,name")
+                .ilike("name", `%${maybe}%`);
+              if (fuzzyErr)
+                throw new InternalServerErrorException(
+                  "Failed to search divisions",
+                );
               if (!fuzzy || fuzzy.length === 0) {
-                const available = (allDivs || []).map((d: any) => d.name).join(', ');
-                throw new BadRequestException(`Division not found; available: ${available}`);
+                const available = (allDivs || [])
+                  .map((d: any) => d.name)
+                  .join(", ");
+                throw new BadRequestException(
+                  `Division not found; available: ${available}`,
+                );
               }
               if (fuzzy.length > 1) {
                 // ambiguous
-                const names = fuzzy.map((d: any) => d.name).join(', ');
-                throw new BadRequestException(`Multiple divisions matched: ${names}. Please provide exact division name or UUID.`);
+                const names = fuzzy.map((d: any) => d.name).join(", ");
+                throw new BadRequestException(
+                  `Multiple divisions matched: ${names}. Please provide exact division name or UUID.`,
+                );
               }
               userData.division_id = fuzzy[0].id;
             }
@@ -174,17 +207,21 @@ export class AuthService {
       }
 
       const { data: user, error: insertError } = await this.adminClient
-        .from('users')
+        .from("users")
         .insert([userData])
-        .select('id, email, full_name, role, status, channel_year, school_name, division_id, avatar_url')
+        .select(
+          "id, email, full_name, role, status, channel_year, school_name, division_id, avatar_url",
+        )
         .single();
 
-      if (insertError) throw new InternalServerErrorException(insertError.message);
-      if (!user) throw new InternalServerErrorException('Failed to create user');
+      if (insertError)
+        throw new InternalServerErrorException(insertError.message);
+      if (!user)
+        throw new InternalServerErrorException("Failed to create user");
 
       return {
-        status: 'success',
-        message: 'Registration successful. Please wait for admin approval.',
+        status: "success",
+        message: "Registration successful. Please wait for admin approval.",
         data: user,
       };
     });
@@ -195,47 +232,51 @@ export class AuthService {
       const email = loginDto.email.toLowerCase().trim();
 
       const { data: user, error: searchError } = await this.adminClient
-        .from('users')
-        .select('id, email, full_name, role, status, password')
-        .eq('email', email)
+        .from("users")
+        .select("id, email, full_name, role, status, password")
+        .eq("email", email)
         .maybeSingle();
 
-      if (searchError) throw new InternalServerErrorException(searchError.message);
-      if (!user) throw new UnauthorizedException('Invalid credentials');
+      if (searchError)
+        throw new InternalServerErrorException(searchError.message);
+      if (!user) throw new UnauthorizedException("Invalid credentials");
 
-      console.log('🔍 User found from DB:', user);
+      console.log("🔍 User found from DB:", user);
 
       if (user.status === UserStatus.PENDING) {
         throw new UnauthorizedException({
-          message: 'Account is pending approval',
+          message: "Account is pending approval",
           status: user.status,
-          details: 'Please wait for admin approval',
+          details: "Please wait for admin approval",
         });
       }
       if (user.status === UserStatus.REJECTED) {
         throw new UnauthorizedException({
-          message: 'Account has been rejected',
+          message: "Account has been rejected",
           status: user.status,
-          details: 'Please contact administrator',
+          details: "Please contact administrator",
         });
       }
       if (user.status !== UserStatus.APPROVED) {
         throw new UnauthorizedException({
           message: `Invalid account status: ${user.status}`,
           status: user.status,
-          details: 'Contact administrator for assistance',
+          details: "Contact administrator for assistance",
         });
       }
 
-      const isPasswordValid = user?.password ? await bcrypt.compare(loginDto.password, user.password) : false;
-      if (!isPasswordValid) throw new UnauthorizedException('Invalid credentials');
+      const isPasswordValid = user?.password
+        ? await bcrypt.compare(loginDto.password, user.password)
+        : false;
+      if (!isPasswordValid)
+        throw new UnauthorizedException("Invalid credentials");
 
       const payload = { sub: user.id, email: user.email, role: user.role };
       const access_token = await this.jwtService.signAsync(payload);
 
       return {
-        status: 'success',
-        message: 'Login successful',
+        status: "success",
+        message: "Login successful",
         data: {
           access_token,
           user: {
@@ -253,28 +294,31 @@ export class AuthService {
     return this.handleDatabaseOperation(async () => {
       // Fetch core user fields from the users table (keeps internal fields like password isolated)
       const { data: user, error } = await this.adminClient
-        .from('users')
-        .select('id, email, full_name, role, status, channel_year, school_name, division_id, avatar_url')
-        .eq('id', userId)
+        .from("users")
+        .select(
+          "id, email, full_name, role, status, channel_year, school_name, division_id, avatar_url",
+        )
+        .eq("id", userId)
         .maybeSingle();
 
       if (error) throw new InternalServerErrorException(error.message);
-      if (!user) throw new UnauthorizedException('User not found');
+      if (!user) throw new UnauthorizedException("User not found");
 
       // Additionally, fetch division-related data from the users_with_division view
       // and merge it into the returned profile. This ensures division info comes from the view.
       try {
         const { data: viewUser, error: viewErr } = await this.adminClient
-          .from('users_with_division')
+          .from("users_with_division")
           // select only division-related fields the view is expected to provide
-          .select('division_id, division_name, channel_year')
-          .eq('id', userId)
+          .select("division_id, division_name, channel_year")
+          .eq("id", userId)
           .maybeSingle();
 
         if (!viewErr && viewUser) {
           // Prefer view values when present. Provide a friendly label for UI.
-          if (typeof viewUser.division_id !== 'undefined') user.division_id = viewUser.division_id;
-          if (typeof viewUser.division_name !== 'undefined') {
+          if (typeof viewUser.division_id !== "undefined")
+            user.division_id = viewUser.division_id;
+          if (typeof viewUser.division_name !== "undefined") {
             (user as any).division_name = viewUser.division_name;
             // Friendly label used by frontend to show text instead of UUID
             (user as any).division_label = viewUser.division_name;
@@ -282,10 +326,11 @@ export class AuthService {
             // Fallback: if view doesn't provide name but user has division_id (string), use it as label
             (user as any).division_label = String(user.division_id);
           }
-          if (typeof viewUser.channel_year !== 'undefined') user.channel_year = viewUser.channel_year;
+          if (typeof viewUser.channel_year !== "undefined")
+            user.channel_year = viewUser.channel_year;
         } else {
           // If view read failed, still provide a label fallback using division_id
-          if (!((user as any).division_label) && user.division_id) {
+          if (!(user as any).division_label && user.division_id) {
             (user as any).division_label = String(user.division_id);
           }
         }
@@ -295,8 +340,8 @@ export class AuthService {
       }
 
       return {
-        status: 'success',
-        message: 'User profile retrieved successfully',
+        status: "success",
+        message: "User profile retrieved successfully",
         data: user,
       };
     });
@@ -306,17 +351,17 @@ export class AuthService {
   async dbCheck() {
     return this.handleDatabaseOperation(async () => {
       const { error, count } = await this.adminClient
-        .from('users')
-        .select('id', { count: 'exact', head: true });
+        .from("users")
+        .select("id", { count: "exact", head: true });
 
       if (error) {
         throw new InternalServerErrorException(error.message);
       }
 
       return {
-        status: 'success',
-        message: 'Database reachable',
-        data: { table: 'users', countKnown: typeof count === 'number' },
+        status: "success",
+        message: "Database reachable",
+        data: { table: "users", countKnown: typeof count === "number" },
       };
     });
   }

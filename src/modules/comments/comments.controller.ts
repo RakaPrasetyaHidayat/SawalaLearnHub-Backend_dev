@@ -1,75 +1,92 @@
-import { Body, Controller, Get, Param, Post, UseGuards, Req } from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { CommentsService } from './comments.service';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { GetUser } from '../auth/decorators/get-user.decorator';
-import { CreateCommentDto } from './dto/comment.dto';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  UseGuards,
+  Req,
+} from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
+import { CommentsService } from "./comments.service";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { GetUser } from "../auth/decorators/get-user.decorator";
+import { CreateCommentDto } from "./dto/comment.dto";
 
-@ApiTags('Comments')
-@Controller('comments')
+@ApiTags("Comments")
+@Controller("comments")
 export class CommentsController {
   constructor(private readonly commentsService: CommentsService) {}
 
-  @Get('info')
+  @Get("info")
   async getCommentsInfo() {
     return {
-      status: 'success',
-      message: 'Comments API endpoints information',
+      status: "success",
+      message: "Comments API endpoints information",
       data: {
-        description: 'Endpoints for managing comments on posts and resources',
+        description: "Endpoints for managing comments on posts and resources",
         endpoints: {
           getComments: {
-            method: 'GET',
-            url: '/api/comments',
-            description: 'Get list of comments'
+            method: "GET",
+            url: "/api/comments",
+            description: "Get list of comments",
           },
           createComment: {
-            method: 'POST',
-            url: '/api/comments/posts/:postId',
-            description: 'Create a new comment on a post'
-          }
-        }
-      }
+            method: "POST",
+            url: "/api/comments/posts/:postId",
+            description: "Create a new comment on a post",
+          },
+        },
+      },
     };
   }
 
-  @Post('posts/:postId')
+  @Post("posts/:postId")
   @UseGuards(JwtAuthGuard)
   async createPostComment(
-    @Param('postId') postId: string,
-    @GetUser('id') userId: string,
+    @Param("postId") postId: string,
+    @GetUser("id") userId: string,
     @Body() createCommentDto: CreateCommentDto,
     @Req() req: any,
   ) {
-    const auth = req.headers?.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : auth;
-    const comment = await this.commentsService.createComment(postId, userId, createCommentDto, token);
+    const auth = req.headers?.authorization || "";
+    const token = auth.startsWith("Bearer ") ? auth.split(" ")[1] : auth;
+    const comment = await this.commentsService.createComment(
+      postId,
+      userId,
+      createCommentDto,
+      token,
+    );
     return {
-      status: 'success',
-      message: 'Comment created successfully',
+      status: "success",
+      message: "Comment created successfully",
       data: comment,
     };
   }
 
-  @Get('posts/:postId')
+  @Get("posts/:postId")
   @UseGuards(JwtAuthGuard)
-  getPostComments(@Param('postId') postId: string) {
+  getPostComments(@Param("postId") postId: string) {
     return this.commentsService.getPostComments(postId);
   }
 
-  @Post('tasks/:taskId')
+  @Post("tasks/:taskId")
   @UseGuards(JwtAuthGuard)
   createTaskComment(
-    @Param('taskId') taskId: string,
-    @GetUser('id') userId: string,
+    @Param("taskId") taskId: string,
+    @GetUser("id") userId: string,
     @Body() createCommentDto: CreateCommentDto,
   ) {
-    return this.commentsService.createTaskComment(taskId, userId, createCommentDto);
+    return this.commentsService.createTaskComment(
+      taskId,
+      userId,
+      createCommentDto,
+    );
   }
 
-  @Get('tasks/:taskId')
+  @Get("tasks/:taskId")
   @UseGuards(JwtAuthGuard)
-  getTaskComments(@Param('taskId') taskId: string) {
+  getTaskComments(@Param("taskId") taskId: string) {
     return this.commentsService.getTaskComments(taskId);
   }
 }

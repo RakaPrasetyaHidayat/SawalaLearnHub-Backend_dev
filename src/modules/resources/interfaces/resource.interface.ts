@@ -1,4 +1,4 @@
-import { ResourceType } from '../../../common/enums';
+import { ResourceType } from "../../../common/enums";
 
 export interface Resource {
   id: string;

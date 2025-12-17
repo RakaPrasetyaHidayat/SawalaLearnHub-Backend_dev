@@ -1,4 +1,4 @@
-import { Division } from '../enums/database.enum';
+import { Division } from "../enums/database.enum";
 
 export interface DivisionInfo {
   id: string;

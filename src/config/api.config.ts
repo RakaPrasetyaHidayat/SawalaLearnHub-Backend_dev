@@ -1,7 +1,7 @@
 export type ApiConfig = {
   globalPrefix: string; // e.g., 'api'
   enableVersioning: boolean;
-  versioningType: 'uri' | 'header';
+  versioningType: "uri" | "header";
   defaultVersion: string; // e.g., 'v1'
   enableCors: boolean;
   cors: {
@@ -10,4 +10,4 @@ export type ApiConfig = {
   };
 };
 
-export const API_CONFIG = 'API_CONFIG' as const;
+export const API_CONFIG = "API_CONFIG" as const;

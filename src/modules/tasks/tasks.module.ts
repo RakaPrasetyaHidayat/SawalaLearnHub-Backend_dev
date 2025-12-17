@@ -1,7 +1,7 @@
-import { Module } from '@nestjs/common';
-import { TasksController } from './tasks.controller';
-import { TasksService } from './tasks.service';
-import { SupabaseModule } from '../../infra/supabase/supabase.module';
+import { Module } from "@nestjs/common";
+import { TasksController } from "./tasks.controller";
+import { TasksService } from "./tasks.service";
+import { SupabaseModule } from "../../infra/supabase/supabase.module";
 
 @Module({
   imports: [SupabaseModule],

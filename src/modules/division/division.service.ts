@@ -1,8 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { SupabaseService } from '../../infra/supabase/supabase.service';
-import { Division } from '../../common/enums/database.enum';
-import { DivisionInfo, DivisionResponse } from '../../common/interfaces/division.interface';
-import { handleDbError } from '../../common/utils/database.utils';
+import { Injectable } from "@nestjs/common";
+import { SupabaseService } from "../../infra/supabase/supabase.service";
+import { Division } from "../../common/enums/database.enum";
+import {
+  DivisionInfo,
+  DivisionResponse,
+} from "../../common/interfaces/division.interface";
+import { handleDbError } from "../../common/utils/database.utils";
 
 @Injectable()
 export class DivisionService {
@@ -12,18 +15,18 @@ export class DivisionService {
     try {
       const { data: divisions, error } = await this.supabaseService
         .getClient(true)
-        .from('divisions')
-        .select('*')
-        .order('name', { ascending: true });
+        .from("divisions")
+        .select("*")
+        .order("name", { ascending: true });
 
       if (error) {
         throw handleDbError(error);
       }
 
       return {
-        status: 'success',
-        message: 'Divisions retrieved successfully',
-        data: divisions
+        status: "success",
+        message: "Divisions retrieved successfully",
+        data: divisions,
       };
     } catch (error) {
       throw handleDbError(error);
@@ -34,9 +37,9 @@ export class DivisionService {
     try {
       const { data: division, error } = await this.supabaseService
         .getClient(true)
-        .from('divisions')
-        .select('*')
-        .eq('id', id)
+        .from("divisions")
+        .select("*")
+        .eq("id", id)
         .single();
 
       if (error) {
@@ -44,25 +47,28 @@ export class DivisionService {
       }
 
       return {
-        status: 'success',
-        message: 'Division retrieved successfully',
-        data: division
+        status: "success",
+        message: "Division retrieved successfully",
+        data: division,
       };
     } catch (error) {
       throw handleDbError(error);
     }
   }
 
-  async createDivision(name: Division, description: string): Promise<DivisionResponse> {
+  async createDivision(
+    name: Division,
+    description: string,
+  ): Promise<DivisionResponse> {
     try {
       const { data: division, error } = await this.supabaseService
         .getClient(true)
-        .from('divisions')
+        .from("divisions")
         .insert([
           {
             name,
-            description
-          }
+            description,
+          },
         ])
         .select()
         .single();
@@ -72,22 +78,25 @@ export class DivisionService {
       }
 
       return {
-        status: 'success',
-        message: 'Division created successfully',
-        data: division
+        status: "success",
+        message: "Division created successfully",
+        data: division,
       };
     } catch (error) {
       throw handleDbError(error);
     }
   }
 
-  async updateDivision(id: string, description: string): Promise<DivisionResponse> {
+  async updateDivision(
+    id: string,
+    description: string,
+  ): Promise<DivisionResponse> {
     try {
       const { data: division, error } = await this.supabaseService
         .getClient(true)
-        .from('divisions')
+        .from("divisions")
         .update({ description })
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single();
 
@@ -96,9 +105,9 @@ export class DivisionService {
       }
 
       return {
-        status: 'success',
-        message: 'Division updated successfully',
-        data: division
+        status: "success",
+        message: "Division updated successfully",
+        data: division,
       };
     } catch (error) {
       throw handleDbError(error);
@@ -109,9 +118,9 @@ export class DivisionService {
     try {
       const { data: division, error } = await this.supabaseService
         .getClient(true)
-        .from('divisions')
+        .from("divisions")
         .delete()
-        .eq('id', id)
+        .eq("id", id)
         .select()
         .single();
 
@@ -120,9 +129,9 @@ export class DivisionService {
       }
 
       return {
-        status: 'success',
-        message: 'Division deleted successfully',
-        data: division
+        status: "success",
+        message: "Division deleted successfully",
+        data: division,
       };
     } catch (error) {
       throw handleDbError(error);

@@ -1,4 +1,10 @@
-import { UserRole, UserStatus, TaskStatus, SubmissionStatus, ResourceType } from '../enums';
+import {
+  UserRole,
+  UserStatus,
+  TaskStatus,
+  SubmissionStatus,
+  ResourceType,
+} from "../enums";
 
 export interface Profile {
   id: string;

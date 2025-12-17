@@ -2,15 +2,15 @@ import {
   Injectable,
   NotFoundException,
   UnauthorizedException,
-} from '@nestjs/common';
-import { SupabaseService } from '../../infra/supabase/supabase.service';
+} from "@nestjs/common";
+import { SupabaseService } from "../../infra/supabase/supabase.service";
 import {
   CreatePostDto,
   UpdatePostDto,
   CreatePostCommentDto,
   FilterPostsDto,
-} from './dto/post.dto';
-import { Post, PostComment } from '../interfaces';
+} from "./dto/post.dto";
+import { Post, PostComment } from "../interfaces";
 
 @Injectable()
 export class PostsService {
@@ -29,7 +29,7 @@ export class PostsService {
       const fileName = `${Date.now()}-${file.originalname}`;
       const { error: uploadError } = await this.supabaseService
         .getClient()
-        .storage.from('post-media') // ensure bucket 'post-media' exists
+        .storage.from("post-media") // ensure bucket 'post-media' exists
         .upload(fileName, file.buffer, {
           contentType: file.mimetype,
           upsert: true,
@@ -40,7 +40,7 @@ export class PostsService {
       // get public URL
       const { data: publicUrl } = this.supabaseService
         .getClient()
-        .storage.from('post-media')
+        .storage.from("post-media")
         .getPublicUrl(fileName);
 
       mediaUrl = publicUrl.publicUrl;
@@ -54,7 +54,7 @@ export class PostsService {
 
     const { data: post, error } = await this.supabaseService
       .getClient()
-      .from('posts')
+      .from("posts")
       .insert(payload)
       .select()
       .maybeSingle();
@@ -69,14 +69,14 @@ export class PostsService {
 
     let query = this.supabaseService
       .getClient()
-      .from('posts')
-      .select('*', { count: 'exact' });
+      .from("posts")
+      .select("*", { count: "exact" });
 
-    if (user_id) query = query.eq('user_id', user_id);
+    if (user_id) query = query.eq("user_id", user_id);
 
     const { data, count, error } = await query
       .range((page - 1) * limit, page * limit - 1)
-      .order('created_at', { ascending: false });
+      .order("created_at", { ascending: false });
 
     if (error) throw error;
 
@@ -92,31 +92,39 @@ export class PostsService {
     const client = this.supabaseService.getClient();
 
     const { data: post, error } = await client
-      .from('posts')
-      .select('*')
-      .eq('id', id)
+      .from("posts")
+      .select("*")
+      .eq("id", id)
       .maybeSingle();
 
-    if (error || !post) throw new NotFoundException('Post not found');
+    if (error || !post) throw new NotFoundException("Post not found");
 
     // Fetch author summary
     const { data: author } = await client
-      .from('users')
-      .select('id, full_name, email, avatar_url')
-      .eq('id', post.user_id)
+      .from("users")
+      .select("id, full_name, email, avatar_url")
+      .eq("id", post.user_id)
       .maybeSingle();
 
     // Fetch counts for likes and comments
-    const [{ count: likesCount }, { count: commentsCount }] = await Promise.all([
-      (async () => {
-        const { count } = await client.from('post_likes').select('id', { count: 'exact', head: true }).eq('post_id', id);
-        return { count: count || 0 } as any;
-      })(),
-      (async () => {
-        const { count } = await client.from('comments').select('id', { count: 'exact', head: true }).eq('post_id', id);
-        return { count: count || 0 } as any;
-      })(),
-    ]);
+    const [{ count: likesCount }, { count: commentsCount }] = await Promise.all(
+      [
+        (async () => {
+          const { count } = await client
+            .from("post_likes")
+            .select("id", { count: "exact", head: true })
+            .eq("post_id", id);
+          return { count: count || 0 } as any;
+        })(),
+        (async () => {
+          const { count } = await client
+            .from("comments")
+            .select("id", { count: "exact", head: true })
+            .eq("post_id", id);
+          return { count: count || 0 } as any;
+        })(),
+      ],
+    );
 
     return {
       ...post,
@@ -135,13 +143,13 @@ export class PostsService {
   ): Promise<Post> {
     const post = await this.findOne(id);
     if (post.user_id !== userId)
-      throw new UnauthorizedException('You can only update your own posts');
+      throw new UnauthorizedException("You can only update your own posts");
 
     const { data: updatedPost, error } = await this.supabaseService
       .getClient()
-      .from('posts')
+      .from("posts")
       .update(updatePostDto)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .maybeSingle();
 
@@ -152,9 +160,9 @@ export class PostsService {
   async remove(id: string, userId: string): Promise<void> {
     const post = await this.findOne(id);
     if (post.user_id !== userId)
-      throw new UnauthorizedException('You can only delete your own posts');
+      throw new UnauthorizedException("You can only delete your own posts");
 
-    await this.supabaseService.delete('posts', id);
+    await this.supabaseService.delete("posts", id);
   }
 
   async addComment(
@@ -165,11 +173,11 @@ export class PostsService {
   ): Promise<PostComment> {
     await this.findOne(postId);
 
-  // Use admin client for server-side insert (bypass RLS). Auth is enforced by Nest guards.
-  const client = this.supabaseService.getClient(true);
+    // Use admin client for server-side insert (bypass RLS). Auth is enforced by Nest guards.
+    const client = this.supabaseService.getClient(true);
 
     const { data: comment, error } = await client
-      .from('comments')
+      .from("comments")
       .insert({
         post_id: postId,
         user_id: userId,
@@ -179,7 +187,7 @@ export class PostsService {
       .maybeSingle();
 
     if (error) {
-      console.error('[PostsService.addComment] DB error:', error);
+      console.error("[PostsService.addComment] DB error:", error);
       throw error;
     }
     return comment as PostComment;
@@ -188,15 +196,15 @@ export class PostsService {
   async getComments(postId: string) {
     const { data: comments, error } = await this.supabaseService
       .getClient()
-      .from('comments')
+      .from("comments")
       .select(
         `
         *,
         users!inner(id, full_name, email, avatar_url)
         `,
       )
-      .eq('post_id', postId)
-      .order('created_at', { ascending: true });
+      .eq("post_id", postId)
+      .order("created_at", { ascending: true });
 
     if (error) throw error;
     return comments ?? [];
@@ -209,45 +217,53 @@ export class PostsService {
   ): Promise<{ liked: boolean; like?: any }> {
     await this.findOne(postId);
 
-  // Use admin client for server-side write operations to bypass RLS (Nest guards already enforce auth)
-  const client = this.supabaseService.getClient(true);
+    // Use admin client for server-side write operations to bypass RLS (Nest guards already enforce auth)
+    const client = this.supabaseService.getClient(true);
 
     try {
       const { data: existingLike, error: selectErr } = await client
-        .from('post_likes')
-        .select('*')
+        .from("post_likes")
+        .select("*")
         .match({ post_id: postId, user_id: userId })
         .maybeSingle();
 
       if (selectErr) {
-        console.error('[PostsService.toggleLike] select error:', selectErr);
-        throw new Error(selectErr.message || 'Failed to query existing like');
+        console.error("[PostsService.toggleLike] select error:", selectErr);
+        throw new Error(selectErr.message || "Failed to query existing like");
       }
 
       if (existingLike) {
-        const { error: delErr } = await client.from('post_likes').delete().match({ id: existingLike.id });
+        const { error: delErr } = await client
+          .from("post_likes")
+          .delete()
+          .match({ id: existingLike.id });
         if (delErr) {
-          console.error('[PostsService.toggleLike] delete error:', delErr);
-          throw new Error(delErr.message || 'Failed to delete like');
+          console.error("[PostsService.toggleLike] delete error:", delErr);
+          throw new Error(delErr.message || "Failed to delete like");
         }
         return { liked: false };
       }
 
       const { data: newLike, error } = await client
-        .from('post_likes')
+        .from("post_likes")
         .insert({ post_id: postId, user_id: userId })
-        .select('*')
+        .select("*")
         .single();
 
       if (error) {
-        console.error('[PostsService.toggleLike] insert error:', error);
-        throw new Error(error.message || 'Failed to create like');
+        console.error("[PostsService.toggleLike] insert error:", error);
+        throw new Error(error.message || "Failed to create like");
       }
       return { liked: true, like: newLike };
     } catch (err: any) {
-      console.error('[PostsService.toggleLike] Error:', err && err.message ? err.message : err);
+      console.error(
+        "[PostsService.toggleLike] Error:",
+        err && err.message ? err.message : err,
+      );
       // Map to appropriate HTTP error for the controller to convert
-      throw new (require('@nestjs/common').InternalServerErrorException)(err.message || 'Failed to toggle like');
+      throw new (require("@nestjs/common").InternalServerErrorException)(
+        err.message || "Failed to toggle like",
+      );
     }
   }
 

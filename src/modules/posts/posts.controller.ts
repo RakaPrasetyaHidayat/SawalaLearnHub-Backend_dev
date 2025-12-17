@@ -11,22 +11,22 @@ import {
   UseInterceptors,
   UploadedFile,
   Req,
-} from '@nestjs/common';
-import { ApiTags } from '@nestjs/swagger';
-import { FileInterceptor } from '@nestjs/platform-express';
-import * as multer from 'multer';
-import { PostsService } from './posts.service';
+} from "@nestjs/common";
+import { ApiTags } from "@nestjs/swagger";
+import { FileInterceptor } from "@nestjs/platform-express";
+import * as multer from "multer";
+import { PostsService } from "./posts.service";
 import {
   CreatePostDto,
   UpdatePostDto,
   CreatePostCommentDto,
   FilterPostsDto,
-} from './dto/post.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { GetUser } from '../auth/decorators/get-user.decorator';
+} from "./dto/post.dto";
+import { JwtAuthGuard } from "../auth/guards/jwt-auth.guard";
+import { GetUser } from "../auth/decorators/get-user.decorator";
 
-@ApiTags('Posts')
-@Controller('posts')
+@ApiTags("Posts")
+@Controller("posts")
 export class PostsController {
   constructor(private readonly postsService: PostsService) {}
 
@@ -35,104 +35,112 @@ export class PostsController {
   @Post()
   @UseGuards(JwtAuthGuard)
   @UseInterceptors(
-    FileInterceptor('file', {
+    FileInterceptor("file", {
       storage: multer.memoryStorage(),
       limits: { fileSize: 10 * 1024 * 1024 }, // 10 MB limit
-  fileFilter: (req: any, file: Express.Multer.File, cb: multer.FileFilterCallback) => {
+      fileFilter: (
+        req: any,
+        file: Express.Multer.File,
+        cb: multer.FileFilterCallback,
+      ) => {
         const allowed = [
-          'application/pdf',
-          'application/msword',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-          'application/vnd.ms-excel',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-          'application/vnd.ms-powerpoint',
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-          'image/jpeg',
-          'image/png',
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          "application/vnd.ms-powerpoint",
+          "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+          "image/jpeg",
+          "image/png",
         ];
-  if (allowed.includes(file.mimetype)) cb(null, true);
-  else cb((new Error('Unsupported file type') as any), false);
+        if (allowed.includes(file.mimetype)) cb(null, true);
+        else cb(new Error("Unsupported file type") as any, false);
       },
     }),
   )
   async create(
     @Body() createPostDto: CreatePostDto,
-    @GetUser('id') userId: string,
+    @GetUser("id") userId: string,
     @UploadedFile() file?: Express.Multer.File,
   ) {
     const post = await this.postsService.create(createPostDto, userId, file);
     return {
-      status: 'success',
-      message: 'Post created successfully',
+      status: "success",
+      message: "Post created successfully",
       data: post,
     };
   }
 
-  @Get('list')
+  @Get("list")
   @UseGuards(JwtAuthGuard)
   findAll(@Query() filterDto: FilterPostsDto) {
     return this.postsService.findAll(filterDto);
   }
 
-  @Get(':id')
+  @Get(":id")
   @UseGuards(JwtAuthGuard)
-  findOne(@Param('id') id: string) {
+  findOne(@Param("id") id: string) {
     return this.postsService.findOne(id);
   }
 
-  @Patch(':id')
+  @Patch(":id")
   @UseGuards(JwtAuthGuard)
   update(
-    @Param('id') id: string,
+    @Param("id") id: string,
     @Body() updatePostDto: UpdatePostDto,
-    @GetUser('id') userId: string,
+    @GetUser("id") userId: string,
   ) {
     return this.postsService.update(id, updatePostDto, userId);
   }
 
-  @Delete(':id')
+  @Delete(":id")
   @UseGuards(JwtAuthGuard)
-  remove(@Param('id') id: string, @GetUser('id') userId: string) {
+  remove(@Param("id") id: string, @GetUser("id") userId: string) {
     return this.postsService.remove(id, userId);
   }
 
-  @Post(':id/comments')
+  @Post(":id/comments")
   @UseGuards(JwtAuthGuard)
   addComment(
-    @Param('id') postId: string,
+    @Param("id") postId: string,
     @Body() commentDto: CreatePostCommentDto,
-    @GetUser('id') userId: string,
+    @GetUser("id") userId: string,
     @Req() req: any,
   ) {
-    const auth = req.headers?.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : auth;
+    const auth = req.headers?.authorization || "";
+    const token = auth.startsWith("Bearer ") ? auth.split(" ")[1] : auth;
     return this.postsService.addComment(postId, userId, commentDto, token);
   }
 
-  @Get(':id/comments')
+  @Get(":id/comments")
   @UseGuards(JwtAuthGuard)
-  getComments(@Param('id') postId: string) {
+  getComments(@Param("id") postId: string) {
     return this.postsService.getComments(postId);
   }
 
-  @Post(':id/likes')
+  @Post(":id/likes")
   @UseGuards(JwtAuthGuard)
-  toggleLike(@Param('id') postId: string, @GetUser('id') userId: string, @Req() req: any) {
-    const auth = req.headers?.authorization || '';
-    const token = auth.startsWith('Bearer ') ? auth.split(' ')[1] : auth;
+  toggleLike(
+    @Param("id") postId: string,
+    @GetUser("id") userId: string,
+    @Req() req: any,
+  ) {
+    const auth = req.headers?.authorization || "";
+    const token = auth.startsWith("Bearer ") ? auth.split(" ")[1] : auth;
     return this.postsService.toggleLike(postId, userId, token);
   }
 
-  @Get('user/:userId')
+  @Get("user/:userId")
   @UseGuards(JwtAuthGuard)
-  getUserPosts(@Param('userId') userId: string) {
+  getUserPosts(@Param("userId") userId: string) {
     return this.postsService.getUserPosts(userId);
   }
 
   // Get posts for current authenticated user
-  @Get('me')
+  @Get("me")
   @UseGuards(JwtAuthGuard)
-  getMyPosts(@GetUser('id') userId: string) {
+  getMyPosts(@GetUser("id") userId: string) {
     return this.postsService.getUserPosts(userId);
   }
 }

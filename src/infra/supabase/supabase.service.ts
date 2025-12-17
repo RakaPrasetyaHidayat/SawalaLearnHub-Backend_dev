@@ -4,23 +4,24 @@ import {
   OnModuleInit,
   UnauthorizedException,
   InternalServerErrorException,
-} from '@nestjs/common';
-import { ConfigService } from '../../config/config.service';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+} from "@nestjs/common";
+import { ConfigService } from "../../config/config.service";
+import { createClient, SupabaseClient } from "@supabase/supabase-js";
 
 @Injectable()
 export class SupabaseService implements OnModuleInit {
-  private client: SupabaseClient;       // anon
-  private adminClient: SupabaseClient;  // service role
+  private client: SupabaseClient; // anon
+  private adminClient: SupabaseClient; // service role
 
   constructor(private configService: ConfigService) {}
 
   async onModuleInit() {
     const { url, anonKey, serviceRoleKey } = this.configService.supabaseConfig;
 
-    if (!url) throw new Error('❌ Missing Supabase URL');
-    if (!anonKey) throw new Error('❌ Missing Supabase Anon Key');
-    if (!serviceRoleKey) throw new Error('❌ Missing Supabase Service Role Key');
+    if (!url) throw new Error("❌ Missing Supabase URL");
+    if (!anonKey) throw new Error("❌ Missing Supabase Anon Key");
+    if (!serviceRoleKey)
+      throw new Error("❌ Missing Supabase Service Role Key");
 
     this.client = createClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -30,14 +31,14 @@ export class SupabaseService implements OnModuleInit {
       auth: { persistSession: false, autoRefreshToken: false },
     });
 
-    console.log('✅ Supabase initialized');
+    console.log("✅ Supabase initialized");
   }
 
   public getClient(useAdmin = false): SupabaseClient {
     const client = useAdmin ? this.adminClient : this.client;
     if (!client) {
       throw new Error(
-        `Supabase ${useAdmin ? 'admin ' : ''}client not initialized`,
+        `Supabase ${useAdmin ? "admin " : ""}client not initialized`,
       );
     }
     return client;
@@ -49,7 +50,7 @@ export class SupabaseService implements OnModuleInit {
    */
   public getClientWithAuth(accessToken: string): SupabaseClient {
     const { url, anonKey } = this.configService.supabaseConfig;
-    if (!url || !anonKey) throw new Error('Supabase not configured');
+    if (!url || !anonKey) throw new Error("Supabase not configured");
     return createClient(url, anonKey, {
       auth: { persistSession: false, autoRefreshToken: false },
       global: { headers: { Authorization: `Bearer ${accessToken}` } },
@@ -63,7 +64,7 @@ export class SupabaseService implements OnModuleInit {
   async register(email: string, password: string) {
     const { data, error } = await this.client.auth.signUp({ email, password });
     if (error) {
-      console.error('❌ Register error:', error.message);
+      console.error("❌ Register error:", error.message);
       throw new InternalServerErrorException(error.message);
     }
     return data;
@@ -75,8 +76,8 @@ export class SupabaseService implements OnModuleInit {
       password,
     });
     if (error) {
-      console.error('❌ Login error:', error.message);
-      throw new UnauthorizedException('Invalid email or password');
+      console.error("❌ Login error:", error.message);
+      throw new UnauthorizedException("Invalid email or password");
     }
     return data;
   }
@@ -84,14 +85,14 @@ export class SupabaseService implements OnModuleInit {
   async logout() {
     const { error } = await this.client.auth.signOut();
     if (error) throw new InternalServerErrorException(error.message);
-    return { message: 'Logged out successfully' };
+    return { message: "Logged out successfully" };
   }
 
   async getUser(accessToken: string) {
     const { data, error } = await this.client.auth.getUser(accessToken);
     if (error) {
-      console.error('❌ GetUser error:', error.message);
-      throw new UnauthorizedException('Invalid or expired token');
+      console.error("❌ GetUser error:", error.message);
+      throw new UnauthorizedException("Invalid or expired token");
     }
     return data.user;
   }
@@ -100,7 +101,11 @@ export class SupabaseService implements OnModuleInit {
   // CRUD
   // =============================
 
-  async create<T>(table: string, data: Partial<T>, useAdmin = false): Promise<T> {
+  async create<T>(
+    table: string,
+    data: Partial<T>,
+    useAdmin = false,
+  ): Promise<T> {
     const { data: result, error } = await this.getClient(useAdmin)
       .from(table)
       .insert(data)
@@ -114,11 +119,15 @@ export class SupabaseService implements OnModuleInit {
     return result as T;
   }
 
-  async findOne<T>(table: string, id: string, useAdmin = false): Promise<T | null> {
+  async findOne<T>(
+    table: string,
+    id: string,
+    useAdmin = false,
+  ): Promise<T | null> {
     const { data, error } = await this.getClient(useAdmin)
       .from(table)
-      .select('*')
-      .eq('id', id)
+      .select("*")
+      .eq("id", id)
       .single();
 
     if (error) {
@@ -131,7 +140,7 @@ export class SupabaseService implements OnModuleInit {
   async findMany<T>(table: string, limit = 10, useAdmin = false): Promise<T[]> {
     const { data, error } = await this.getClient(useAdmin)
       .from(table)
-      .select('*')
+      .select("*")
       .limit(limit);
 
     if (error) {
@@ -141,11 +150,16 @@ export class SupabaseService implements OnModuleInit {
     return data as T[];
   }
 
-  async update<T>(table: string, id: string, data: Partial<T>, useAdmin = false): Promise<T> {
+  async update<T>(
+    table: string,
+    id: string,
+    data: Partial<T>,
+    useAdmin = false,
+  ): Promise<T> {
     const { data: result, error } = await this.getClient(useAdmin)
       .from(table)
       .update(data)
-      .eq('id', id)
+      .eq("id", id)
       .select()
       .single();
 
@@ -160,7 +174,7 @@ export class SupabaseService implements OnModuleInit {
     const { error } = await this.getClient(useAdmin)
       .from(table)
       .delete()
-      .eq('id', id);
+      .eq("id", id);
 
     if (error) {
       console.error(`❌ Delete error on ${table}:`, error.message);

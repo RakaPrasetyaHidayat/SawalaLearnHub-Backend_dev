@@ -1,20 +1,20 @@
 export enum UserStatus {
-  PENDING = 'pending',
-  APPROVED = 'approved',
-  REJECTED = 'rejected'
+  PENDING = "pending",
+  APPROVED = "approved",
+  REJECTED = "rejected",
 }
 
 export enum UserRole {
-  ADMIN = 'ADMIN',
-  SISWA = 'SISWA',
-  Mentor = 'MENTOR'
+  ADMIN = "ADMIN",
+  SISWA = "SISWA",
+  Mentor = "MENTOR",
 }
 
 export enum TaskStatus {
-  SUBMITTED = 'submitted',
-  OVERDUE = 'overdue',
-  APPROVED = 'approved',
-  NEED_REVISION = 'need_revision'
+  SUBMITTED = "submitted",
+  OVERDUE = "overdue",
+  APPROVED = "approved",
+  NEED_REVISION = "need_revision",
 }
 
 export interface User {
@@ -79,7 +79,7 @@ export interface Comment {
   content: string;
   user_id: string;
   reference_id: string; // bisa task_id atau post_id
-  reference_type: 'task' | 'post';
+  reference_type: "task" | "post";
   created_at: Date;
   updated_at: Date;
 }

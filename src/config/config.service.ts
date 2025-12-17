@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { ConfigService as NestConfigService } from '@nestjs/config';
+import { Injectable } from "@nestjs/common";
+import { ConfigService as NestConfigService } from "@nestjs/config";
 
 @Injectable()
 export class ConfigService {
@@ -7,24 +7,26 @@ export class ConfigService {
 
   get supabaseConfig() {
     return {
-      url: this.configService.get<string>('SUPABASE_URL'),
-      anonKey: this.configService.get<string>('SUPABASE_ANON_KEY'),
-      serviceRoleKey: this.configService.get<string>('SUPABASE_SERVICE_ROLE_KEY'),
+      url: this.configService.get<string>("SUPABASE_URL"),
+      anonKey: this.configService.get<string>("SUPABASE_ANON_KEY"),
+      serviceRoleKey: this.configService.get<string>(
+        "SUPABASE_SERVICE_ROLE_KEY",
+      ),
     };
   }
 
   get jwtConfig() {
     return {
-      secret: this.configService.get<string>('JWT_SECRET'),
+      secret: this.configService.get<string>("JWT_SECRET"),
     };
   }
 
   get apiConfig() {
     return {
-      globalPrefix: 'api',
+      globalPrefix: "api",
       enableVersioning: true,
-      versioningType: 'uri',
-      defaultVersion: 'v1',
+      versioningType: "uri",
+      defaultVersion: "v1",
       enableCors: true,
       cors: {
         origin: true,

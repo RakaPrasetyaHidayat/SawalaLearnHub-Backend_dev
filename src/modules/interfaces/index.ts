@@ -19,8 +19,8 @@ export interface UserSocialAccount {
 export interface Alert {
   id: string;
   user_id: string;
-  type: 'approve' | 'reject';
-  status: 'yes' | 'no';
+  type: "approve" | "reject";
+  status: "yes" | "no";
   message: string;
   created_at: Date;
 }
@@ -105,7 +105,7 @@ export interface TaskSubmission {
   user_id: string;
   file_url?: string;
   comment?: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: "pending" | "approved" | "rejected";
   created_at: Date;
 }
 

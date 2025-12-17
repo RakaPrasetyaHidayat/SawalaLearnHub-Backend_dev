@@ -7,11 +7,11 @@ export type Database = {
           full_name: string;
           email: string;
           password_hash: string;
-          role: 'ADMIN' | 'MENTOR' | 'SISWA';
+          role: "ADMIN" | "MENTOR" | "SISWA";
           division_id: string;
           angkatan: number;
           school_name: string;
-          status: 'pending' | 'approved' | 'rejected';
+          status: "pending" | "approved" | "rejected";
           created_at: string;
           updated_at: string;
         };
@@ -28,11 +28,11 @@ export type Database = {
       };
     };
     Enums: {
-      user_role: 'ADMIN' | 'MENTOR' | 'SISWA';
-      user_status: 'pending' | 'approved' | 'rejected';
-      alert_type: 'approve' | 'reject';
-      alert_status: 'yes' | 'no';
-      task_status: 'pending' | 'approved' | 'rejected';
+      user_role: "ADMIN" | "MENTOR" | "SISWA";
+      user_status: "pending" | "approved" | "rejected";
+      alert_type: "approve" | "reject";
+      alert_status: "yes" | "no";
+      task_status: "pending" | "approved" | "rejected";
     };
   };
 };

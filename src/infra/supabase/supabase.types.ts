@@ -1,7 +1,7 @@
-import { Database } from '../../types/supabase';
+import { Database } from "../../types/supabase";
 
-export type Tables = Database['public']['Tables'];
-export type Enums = Database['public']['Enums'];
+export type Tables = Database["public"]["Tables"];
+export type Enums = Database["public"]["Enums"];
 
 export interface SupabaseConfig {
   SUPABASE_URL: string;
@@ -19,5 +19,5 @@ export interface QueryOptions {
   page?: number;
   limit?: number;
   orderBy?: string;
-  orderDirection?: 'asc' | 'desc';
+  orderDirection?: "asc" | "desc";
 }
