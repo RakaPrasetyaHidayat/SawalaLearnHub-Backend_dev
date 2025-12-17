@@ -1,12 +1,16 @@
 LearnHub Backend API
-Overview
+Introduction
 
-LearnHub Backend API is a centralized backend service designed as the core API layer for the entire LearnHub ecosystem.
-It serves as the single source of truth for all LearnHub data, business logic, and system processes.
+LearnHub Backend API is the core backend service that powers the entire LearnHub ecosystem.
+It is designed as a centralized, platform-agnostic API that manages all business logic, data flow, and authorization rules across LearnHub applications.
 
-The API is frontend-agnostic, meaning it is not coupled to any specific client application. This enables seamless integration across multiple platforms while maintaining consistent business rules and data integrity.
+Rather than building separate backends for each client, LearnHub adopts a single backend architecture, ensuring consistency, scalability, and long-term maintainability.
 
-LearnHub Backend API can be consumed by:
+This API serves as the single source of truth for all LearnHub-related data and operations.
+
+Supported Client Applications
+
+The LearnHub Backend API can be consumed by multiple types of applications, including:
 
 🌐 Web Applications
 
@@ -14,35 +18,38 @@ LearnHub Backend API can be consumed by:
 
 🖥️ Admin Dashboards
 
-By using a single backend API, LearnHub avoids duplicated logic, reduces technical debt, and ensures long-term scalability.
+🛠️ Internal tools and services
 
-Project Goals & Design Philosophy
+Any client capable of making HTTP requests can integrate with this API without platform restrictions.
 
-The primary goals of this project are:
+Project Objectives
 
-Provide one centralized API for all LearnHub applications
+This project was built to achieve the following objectives:
 
-Decouple backend business logic from frontend implementations
+Centralize all LearnHub backend logic into a single API
 
-Enable multi-platform development using a shared API
+Decouple frontend implementations from backend business rules
 
-Establish a scalable, modular, and maintainable backend architecture
+Enable efficient development across multiple platforms
+
+Provide a scalable, modular, and reusable backend foundation
+
+Reduce duplication of logic and technical debt
 
 Architectural Principle
 
-One API → Multiple Applications
+One Backend API → Multiple Client Applications
 
-All LearnHub clients communicate with the same API, following consistent endpoints, validation rules, and authorization logic.
-This ensures predictable behavior across platforms and simplifies long-term maintenance.
+All LearnHub applications communicate with the same API using consistent endpoints, validation rules, and authorization mechanisms.
 
-Core API Capabilities
+Core Features
 Authentication & Authorization
 
-Handles identity and access control across the LearnHub ecosystem.
+The API handles identity management and access control across the platform.
 
 User registration and login
 
-Token-based authentication (JWT)
+JWT-based authentication
 
 Role-based access control (e.g. admin, user)
 
@@ -50,21 +57,21 @@ Secure authorization for protected endpoints
 
 Learning Management
 
-Provides structured access to learning-related data and processes.
+Provides structured access to learning-related resources and workflows.
 
 Courses and learning materials
 
-Modular learning content
+Modular learning content structure
 
 Learning progress tracking
 
-Extensible structure for future learning features
+Designed to support future learning features
 
-Reusable & Platform-Agnostic API Design
+Platform-Agnostic API Design
 
 RESTful endpoints designed for reuse
 
-No dependency on UI or frontend frameworks
+Independent of UI and frontend frameworks
 
 Consistent request and response contracts
 
@@ -76,43 +83,43 @@ Feature-based module separation
 
 Easy to extend without breaking existing clients
 
-Clean, maintainable codebase using best practices
+Clean, maintainable codebase
 
-Designed for long-term growth of the LearnHub platform
+Designed for long-term system growth
 
-Project Structure (Simplified)
+Project Structure
 📦 LearnHub-Backend-System
  ┣ 📁 src               # Main application source code
- ┣ 📁 api               # API modules and feature definitions
- ┣ 📁 docs              # API documentation and references
+ ┣ 📁 api               # Feature-based API modules
+ ┣ 📁 docs              # API documentation
  ┣ 📜 package.json
  ┣ 📜 tsconfig.json
  ┣ 📜 README.md
 
 
-Each module is designed to be independent, making the system easier to scale and maintain.
+Each module is structured to promote separation of concerns and ease of maintenance.
 
 Technology Stack
 
 Node.js – JavaScript runtime
 
-TypeScript – Strongly typed development
+TypeScript – Strongly typed language for safer development
 
-NestJS – Structured and scalable backend framework
+NestJS – Scalable backend framework
 
 RESTful API Architecture
 
 Database – Configurable per environment (e.g. PostgreSQL)
 
 Getting Started
-1. Clone the Repository
+Clone the Repository
 git clone https://github.com/RakaPrasetyaHidayat/LearnHub-Backend-System.git
 cd LearnHub-Backend-System
 
-2. Install Dependencies
+Install Dependencies
 npm install
 
-3. Environment Configuration
+Environment Configuration
 
 Create a .env file in the project root:
 
@@ -123,62 +130,48 @@ DB_USER=your_user
 DB_PASS=your_password
 JWT_SECRET=your_secret
 
-4. Run the Development Server
+Run the Development Server
 npm run start:dev
 
 
-Once running, the API will be accessible at:
+The server will start on:
 
 http://localhost:3000
 
 API Documentation
 
-If Swagger is enabled, interactive API documentation will be available at:
+If Swagger is enabled, interactive API documentation is available at:
 
 http://localhost:3000/api/docs#/
 
 
-The documentation provides:
+The documentation includes:
 
 Available endpoints
 
-Request parameters
-
-Response formats
+Request and response schemas
 
 Authentication requirements
 
-Additional documentation may also be found in the docs/ directory.
+Error responses
 
-API Usage Across LearnHub Applications
+Additional documentation may be found inside the docs/ directory.
 
-This API is designed to support various client applications, including:
+Recommended Stack for LearnHub Ecosystem
 
-LearnHub Web Applications (React / Vue / Next.js)
+Database: Supabase (PostgreSQL)
 
-Mobile Applications (Flutter / React Native)
-
-Admin Dashboards
-
-Internal tools and services
-
-As long as a client can perform HTTP requests, it can integrate with the LearnHub Backend API without platform restrictions.
-
-Recommended Tooling & Infrastructure
-
-Database: Supabase (PostgreSQL-based)
-
-Frontend UI: Next.js
+Frontend: Next.js
 
 Deployment: Vercel
 
-These tools complement the API architecture and support rapid development and scalability.
+This stack is recommended for optimal compatibility and scalability within the LearnHub ecosystem.
 
 Contribution Guidelines
 
-Contributions are welcome and encouraged.
+Contributions are welcome to improve and extend LearnHub.
 
-To contribute:
+Contribution process:
 
 Fork the repository
 
@@ -190,8 +183,8 @@ Push to your fork
 
 Submit a Pull Request
 
-All contributions should follow the existing coding standards and architectural principles.
+Please ensure all contributions follow existing architectural and coding standards.
 
 License
 
-The license will be defined based on the future direction and distribution strategy of LearnHub.
+The license will be defined based on the future direction of the LearnHub project.
